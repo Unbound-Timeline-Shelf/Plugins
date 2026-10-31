@@ -44,6 +44,13 @@ returns `next_cursor`, the next unsent Atlas offset, and the host asks again unt
 entries are 500 to 800 bytes, so about 70 to 110 fit per response: a 450-entry game takes 5 to 7 responses
 and a 2000-entry game about 20 to 30.
 
+Achievement identity: the host `external_id` is the stable `ak1:` key Atlas gives each entry (Atlas contract C2, Atlas
+`programme/a4-achievement-identity`), which survives list re-imports, edits and node differences; the Atlas row `id` is
+not an identity because older Atlas versions minted a new one on every refresh. The row id travels as
+`source_ids["atlas.row"]` so a host that stored the catalogue under row ids can re-key it instead of recreating it.
+Against an Atlas without keys the plugin falls back to the row `id` (the previous behaviour). No Plugin API field beyond
+1.1.19 is sent.
+
 The host merges the pages by `external_id` (host PR 447), so an entry repeated across a boundary arrives
 once. At most 2000 entries are forwarded, and a failed later page is reported as a failure instead of a
 truncated list. An Atlas without paging ignores the parameters and returns everything in one response,
