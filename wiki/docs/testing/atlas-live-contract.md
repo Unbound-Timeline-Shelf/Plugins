@@ -36,8 +36,8 @@ running. A plain `pytest` skips `tests/atlas_live` (one skip, with the reason) b
 The `atlas-live-contract` job in `.github/workflows/ci.yml` runs when `official/metadata-atlas`,
 `tests/atlas_live`, `tools/check_metadata_atlas_live.py` or any shared file changes. Atlas is a private
 repository, so the job needs the repository secret `ATLAS_CHECKOUT_TOKEN` (a read-only token with contents
-access to `obsoletelabs/unnamed_tracking_metadata`); without it the job fails instead of passing without
-running. It builds Atlas at the revision pinned in the job's `ATLAS_REF` (override with the `atlas_ref`
+access to `obsoletelabs/unnamed_tracking_metadata`); until it is configured the job is skipped with a visible
+warning and a job summary (it does not pass silently), and once it is set any failure fails the job. It builds Atlas at the revision pinned in the job's `ATLAS_REF` (override with the `atlas_ref`
 dispatch input). Bump the pin deliberately; the lane is how you learn what a newer Atlas breaks.
 
 ## What it covers

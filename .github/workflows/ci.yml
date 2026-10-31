@@ -291,15 +291,24 @@ jobs:
       ATLAS_REF: ${{ inputs.atlas_ref || '62c73f36e7de4a0bd6b814a7dd992eacc7a670e1' }}
     steps:
       - uses: actions/checkout@v7
-      - name: Require read access to the Atlas repository
+      # Atlas is a private repository, so this lane needs a read-only token. Until the secret exists the
+      # lane is skipped loudly (warning + job summary) instead of failing every pull request; once the
+      # secret is set, any failure below fails the job as normal.
+      - name: Check read access to the Atlas repository
+        id: atlas_access
         env:
           ATLAS_TOKEN: ${{ secrets.ATLAS_CHECKOUT_TOKEN }}
         run: |
           if [ -z "$ATLAS_TOKEN" ]; then
-            echo "::error::Secret ATLAS_CHECKOUT_TOKEN (read-only, contents on $ATLAS_REPOSITORY) is not configured, so the live Atlas contract lane cannot run."
-            exit 1
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Secret ATLAS_CHECKOUT_TOKEN (read-only, contents on $ATLAS_REPOSITORY) is not configured, so the live Atlas contract lane was SKIPPED."
+            echo "### Live Atlas contract lane skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "Configure the \`ATLAS_CHECKOUT_TOKEN\` repository secret (read-only contents access to \`$ATLAS_REPOSITORY\`) to enable it." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/checkout@v7
+        if: steps.atlas_access.outputs.available == 'true'
         with:
           repository: ${{ env.ATLAS_REPOSITORY }}
           ref: ${{ env.ATLAS_REF }}
@@ -307,16 +316,19 @@ jobs:
           path: .validation/atlas
           persist-credentials: false
       - uses: actions/setup-python@v6
+        if: steps.atlas_access.outputs.available == 'true'
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: requirements-dev.txt
-      - run: python -m pip install --upgrade pip -r requirements-dev.txt
+      - if: steps.atlas_access.outputs.available == 'true'
+        run: python -m pip install --upgrade pip -r requirements-dev.txt
       - name: Build Atlas, start it, seed synthetic data and run the plugin against it
+        if: steps.atlas_access.outputs.available == 'true'
         run: |
           python tools/check_metadata_atlas_live.py             --atlas-source .validation/atlas --tag atlas-live:ci             --log-dir "${{ runner.temp }}/atlas-live"
       - uses: actions/upload-artifact@v7
-        if: always()
+        if: always() && steps.atlas_access.outputs.available == 'true'
         with:
           name: atlas-live-contract-evidence
           path: ${{ runner.temp }}/atlas-live/*.log
