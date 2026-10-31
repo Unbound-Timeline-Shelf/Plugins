@@ -567,3 +567,219 @@ def test_an_invalid_achievement_cursor_is_rejected_without_a_request(atlas, monk
         response = atlas.metadata({"request": {"resource": "achievements", "cursor": bad}, "candidate": selected})
         assert response == {"failure": {"code": "invalid_response"}}
     assert _achievement_calls(gateway) == []
+
+
+# --- /resolve semantics (contract C4.3): conflicts and ambiguity are never an identity -----------------------------
+
+RESOLVE_FIXTURE = ROOT / "tests" / "fixtures" / "atlas" / "resolve-contract-v1.json"
+STEAM_ONLY = {"provider": "official.metadata-steam.steam", "title": "Portal 2", "year": 2011,
+              "provider_ids": {"steam": "620"}}
+OTHER = "atlas:" + "b" * 26
+
+
+def resolved(reason, method, *, canonical=GAME["id"], game=GAME, **extra):
+    row = {"canonical_id": canonical, "method": method, "confidence": 0.9, "candidates": [],
+           "assigned": canonical is not None, "reason": reason, "tier": "id", "redirected_from": None,
+           "matched_keys": [], "conflict": None, "game": game}
+    return {"results": [{**row, **extra}]}
+
+
+def lookup(atlas, monkeypatch, data, selected=STEAM_ONLY):
+    gateway = Gateway(monkeypatch, routes={"/resolve": {"status": 200, "data": data}})
+    return atlas.metadata({"request": {}, "candidate": selected}), gateway
+
+
+@pytest.mark.parametrize("reason, method", [("id", "crosswalk"), ("redirect", "crosswalk"), ("crosswalk", "crosswalk"),
+                                            ("exact", "exact")])
+def test_resolve_adopts_only_the_reasons_atlas_calls_safe(atlas, monkeypatch, reason, method):
+    out, _ = lookup(atlas, monkeypatch, resolved(reason, method))
+    assert out["metadata"]["provider_ids"]["atlas"] == GAME["id"]
+
+
+@pytest.mark.parametrize("reason, method", [
+    ("conflict", "none"), ("type_mismatch", "none"), ("ambiguous", "none"), ("none", "none"), ("fuzzy", "fuzzy"),
+    ("a_reason_from_the_future", "exact"),
+    # a reason that is not adoptable wins over a method that looks confident
+    ("conflict", "crosswalk"), ("ambiguous", "exact"), ("type_mismatch", "crosswalk")])
+def test_resolve_never_adopts_conflict_ambiguous_or_cross_type_answers(atlas, monkeypatch, reason, method):
+    out, _ = lookup(atlas, monkeypatch, resolved(reason, method))
+    assert out == {}
+
+
+def test_a_conflict_is_logged_without_an_identity_a_failure_or_a_custom_marker(atlas, monkeypatch, capsys):
+    conflict = {"canonical_ids": [GAME["id"], OTHER], "own": GAME["id"], "review_id": "01JREVIEW"}
+    data = resolved("conflict", "none", canonical=None, game=None, conflict=conflict,
+                    candidates=[{"id": GAME["id"], "score": 1.0}, {"id": OTHER, "score": 1.0}])
+    out, gateway = lookup(atlas, monkeypatch, data)
+    assert out == {}  # no failure code, no patch, nothing in `custom`
+    assert atlas.media({"request": {}, "candidate": STEAM_ONLY}) == {"assets": []}
+    logged = capsys.readouterr().err
+    assert GAME["id"] in logged and OTHER in logged and "conflicting identifiers" in logged
+    assert TOKEN not in logged and "Portal 2" not in logged
+    assert all(call["url"].endswith("/resolve") for call in gateway.calls)
+
+
+def test_a_conflict_hint_never_leaks_into_the_patch_even_if_atlas_still_sends_the_record(atlas, monkeypatch):
+    """The hint `conflict.own` is for a curator; a client that adopted it would repeat the bug in plugins#70."""
+    conflict = {"canonical_ids": [GAME["id"], OTHER], "own": GAME["id"], "review_id": None}
+    out, _ = lookup(atlas, monkeypatch, resolved("crosswalk", "crosswalk", conflict=conflict))
+    assert out == {}
+
+
+@pytest.mark.parametrize("answer, accepted", [
+    ({"method": "crosswalk"}, True),
+    ({"method": "exact"}, True),
+    ({"method": "fuzzy"}, False),
+    ({"method": "none"}, False),
+    ({"method": "crosswalk", "conflict": {"canonical_ids": [GAME["id"], OTHER]}}, False),
+    ({"method": "crosswalk", "conflict": ["x"]}, False),
+])
+def test_an_atlas_without_reason_keeps_the_method_rule_and_refuses_a_conflict_key(atlas, monkeypatch, answer, accepted):
+    out, _ = lookup(atlas, monkeypatch, {"results": [{"canonical_id": GAME["id"], **answer, "game": GAME}]})
+    assert bool(out) is accepted
+
+
+def test_a_redirect_is_followed_to_the_live_record(atlas, monkeypatch):
+    live = {**GAME, "id": OTHER}
+    data = resolved("redirect", "crosswalk", canonical=OTHER, game=live, redirected_from=GAME["id"])
+    out, _ = lookup(atlas, monkeypatch, data)
+    assert out["metadata"]["provider_ids"]["atlas"] == OTHER
+    assert out["metadata"]["links"][0]["url"].endswith("/game/" + OTHER)
+
+
+@pytest.mark.parametrize("game, canonical", [
+    ({**GAME, "id": OTHER}, GAME["id"]),             # the record is not the one Atlas named
+    ({**GAME, "id": "../../admin"}, None),            # not an Atlas id
+    ({k: v for k, v in GAME.items() if k != "id"}, GAME["id"]),
+    (None, GAME["id"]),
+])
+def test_a_resolved_record_must_be_the_live_record_atlas_named(atlas, monkeypatch, game, canonical):
+    out, _ = lookup(atlas, monkeypatch, resolved("redirect", "crosswalk", canonical=canonical, game=game))
+    assert out == {}
+
+
+@pytest.mark.parametrize("year, sent", [(2011, "2011"), (1999, "1999")])
+def test_resolve_sends_the_year_alone_as_the_release_date(atlas, monkeypatch, year, sent):
+    _, gateway = lookup(atlas, monkeypatch, resolved("exact", "exact"), {**STEAM_ONLY, "year": year})
+    assert gateway.calls[0]["body"]["items"][0]["release_date"] == sent
+
+
+def test_resolve_without_a_year_sends_no_release_date(atlas, monkeypatch):
+    selected = {k: v for k, v in STEAM_ONLY.items() if k != "year"}
+    _, gateway = lookup(atlas, monkeypatch, resolved("crosswalk", "crosswalk"), selected)
+    assert "release_date" not in gateway.calls[0]["body"]["items"][0]
+
+
+@pytest.mark.parametrize("data", [{}, {"results": []}, {"results": [None]}, {"results": "x"}, {"results": [[]]}])
+def test_resolve_survives_an_empty_or_malformed_answer(atlas, monkeypatch, data):
+    out, _ = lookup(atlas, monkeypatch, data)
+    assert out == {}
+
+
+def test_a_merged_atlas_id_is_served_under_the_live_id(atlas, monkeypatch):
+    """GET /games/{old} returns the live record with `redirected_from` (contract C4.2)."""
+    live = {**GAME, "id": OTHER, "redirected_from": GAME["id"]}
+    Gateway(monkeypatch, routes={"/games/" + GAME["id"]: {"status": 200, "data": live}})
+    selected = {"provider": atlas.PROVIDER_ID, "external_id": GAME["id"], "title": "Portal 2",
+                "provider_ids": {"atlas": GAME["id"], "steam": "620"}}
+    out = atlas.metadata({"request": {}, "candidate": selected})["metadata"]
+    assert out["provider_ids"] == {"atlas": OTHER, "steam": "620", "igdb": "72"}
+    assert out["links"][0]["url"] == "https://atlas.test/game/" + OTHER
+    assert "redirected_from" not in out and GAME["id"] not in json.dumps(out)
+
+
+def test_artwork_and_achievements_of_a_merged_id_use_the_live_id(atlas, monkeypatch):
+    live = {**GAME, "id": OTHER, "redirected_from": GAME["id"]}
+    gateway = Gateway(monkeypatch, routes={"/games/" + GAME["id"]: {"status": 200, "data": live},
+                                           "/artwork": {"status": 200, "data": {"results": []}},
+                                           "/achievements": {"status": 404}})
+    selected = {"provider": atlas.PROVIDER_ID, "external_id": GAME["id"], "title": "Portal 2"}
+    atlas.media({"request": {}, "candidate": selected})
+    atlas.metadata({"request": {"resource": "achievements"}, "candidate": selected})
+    urls = [call["url"] for call in gateway.calls]
+    assert any(url.endswith("/games/" + OTHER + "/artwork") for url in urls)
+    assert any("/games/" + OTHER + "/achievements" in url for url in urls)
+
+
+@pytest.mark.parametrize("live_id", ["../../admin", "", None, 7, "atlas:short"])
+def test_a_redirect_that_does_not_end_on_an_atlas_id_is_refused(atlas, monkeypatch, live_id):
+    Gateway(monkeypatch, routes={"/games/" + GAME["id"]: {
+        "status": 200, "data": {**GAME, "id": live_id, "redirected_from": GAME["id"]}}})
+    selected = {"provider": atlas.PROVIDER_ID, "external_id": GAME["id"], "title": "Portal 2"}
+    assert atlas.metadata({"request": {}, "candidate": selected}) == {}
+
+
+def test_an_unredirected_record_is_served_as_before(atlas, monkeypatch):
+    Gateway(monkeypatch, routes={"/games/" + GAME["id"]: {"status": 200, "data": {**GAME, "redirected_from": None}}})
+    selected = {"provider": atlas.PROVIDER_ID, "external_id": GAME["id"], "title": "Portal 2"}
+    assert atlas.metadata({"request": {}, "candidate": selected})["metadata"]["provider_ids"]["atlas"] == GAME["id"]
+
+
+# --- the vendored shared fixture (contract C4.5) -------------------------------------------------------------------
+
+SPEC = json.loads(RESOLVE_FIXTURE.read_text(encoding="utf-8"))
+SAFE = {"id", "redirect", "crosswalk", "exact"}
+
+
+def test_the_vendored_resolve_fixture_matches_its_pinned_digest():
+    pinned = RESOLVE_FIXTURE.with_name(RESOLVE_FIXTURE.name + ".sha256").read_text(encoding="utf-8").split()[0]
+    assert hashlib.sha256(RESOLVE_FIXTURE.read_bytes().replace(b"\r\n", b"\n")).hexdigest() == pinned
+    assert SPEC["contract"] == "C4" and SPEC["version"] == 1
+
+
+def fake_ids(spec):
+    names = [seed["name"] for seed in spec["seeds"]]
+    return {name: "atlas:" + format(index + 1, "x").rjust(26, "0") for index, name in enumerate(names)}
+
+
+def substitute(value, ids):
+    if isinstance(value, str) and value.startswith("$"):
+        return ids[value[1:]]
+    if isinstance(value, dict):
+        return {k: substitute(v, ids) for k, v in value.items()}
+    if isinstance(value, list):
+        return [substitute(v, ids) for v in value]
+    return value
+
+
+def candidate_for(request):
+    """The candidate a host passes for a /resolve request in the fixture."""
+    ids = dict(request.get("provider_ids") or {})
+    if request.get("namespace") and request.get("external_id"):
+        ids[request["namespace"]] = request["external_id"]
+    out = {"provider": "official.metadata-steam.steam", "title": request.get("title"), "provider_ids": ids,
+           "media_type": request.get("media_type", "game")}
+    if request.get("release_date"):
+        out["year"] = int(request["release_date"][:4])
+    return out
+
+
+def has_atlas_id(request):
+    return "atlas" in {**(request.get("provider_ids") or {}), request.get("namespace", ""): 1}
+
+
+@pytest.mark.parametrize("case", [c for c in SPEC["cases"] if not has_atlas_id(c["request"])], ids=lambda c: c["name"])
+def test_every_fixture_case_is_adopted_exactly_when_the_contract_says_so(atlas, monkeypatch, case):
+    """Replays each expected Atlas answer through the plugin: only id/redirect/crosswalk/exact become an identity.
+
+    Requests that carry an Atlas id are looked up by id (GET), not through /resolve; the live lane covers them."""
+    ids = fake_ids(SPEC)
+    expect = substitute(case["expect"], ids)
+    live = {**GAME, "id": expect["canonical_id"]} if expect["canonical_id"] else None
+    conflict = ({"canonical_ids": expect["conflict_ids"], "own": expect["conflict_own"], "review_id": None}
+                if expect["reason"] == "conflict" else None)
+    answer = {"canonical_id": expect["canonical_id"], "method": expect["method"], "confidence": 0.9, "candidates": [],
+              "assigned": live is not None, "reason": expect["reason"], "tier": expect["tier"],
+              "redirected_from": expect.get("redirected_from"), "matched_keys": [], "conflict": conflict,
+              "game": live}
+    gateway = Gateway(monkeypatch, routes={"/resolve": {"status": 200, "data": {"results": [answer]}}})
+    out = atlas.metadata({"request": {}, "candidate": candidate_for(substitute(case["request"], ids))})
+    assert bool(out) is (expect["reason"] in SAFE), case["name"]
+    if out:
+        assert out["metadata"]["provider_ids"]["atlas"] == expect["canonical_id"]
+    sent = gateway.calls[0]["body"]["items"][0]
+    request = case["request"]
+    if request.get("release_date"):
+        assert sent["release_date"] == request["release_date"][:4]  # a year, never "<year>-01-01"
+    assert sent["media_type"] == request.get("media_type", "game")
+    assert "atlas" not in sent.get("provider_ids", {})
