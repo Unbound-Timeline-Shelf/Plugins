@@ -80,6 +80,7 @@ nav:
   - Testing:
       - Unit, package, host and CI: testing/index.md
       - Lifecycle conformance: testing/lifecycle.md
+      - Live Atlas contract lane: testing/atlas-live-contract.md
   - Troubleshooting: troubleshooting/index.md
   - Examples and Screenshots:
       - Working examples: examples/index.md
