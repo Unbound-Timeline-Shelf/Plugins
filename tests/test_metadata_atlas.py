@@ -350,6 +350,52 @@ ACHIEVEMENTS = {"results": [
 ]}
 
 
+KEY_A, KEY_B = "ak1:" + "a" * 26, "ak1:" + "b" * 26
+
+
+def _catalogue(atlas, monkeypatch, results):
+    Gateway(monkeypatch, routes={"/games/" + GAME["id"] + "/achievements": {"status": 200, "data": {"results": results}},
+                                 "/games/" + GAME["id"]: {"status": 200, "data": GAME}})
+    selected = {"provider": atlas.PROVIDER_ID, "external_id": GAME["id"], "title": "Portal 2"}
+    result = atlas.metadata({"request": {"resource": "achievements"}, "candidate": selected})
+    jsonschema.validate(result, json.loads((ROOT / "tools/schemas/metadata-response-v1.schema.json").read_text()))
+    return result["metadata"]["achievements"]
+
+
+def test_the_stable_atlas_key_is_the_external_id_and_the_row_id_rides_as_the_atlas_row_bridge(atlas, monkeypatch):
+    items = _catalogue(atlas, monkeypatch, [
+        {"id": "01JROW1", "key": KEY_A, "keys": [KEY_A], "name": "Keyed", "external_ids": {"steam": "ACH_1"}},
+        {"id": "01JROW2", "key": KEY_B, "name": "Hidden achievement", "hidden": True, "external_ids": {}}])
+    assert [i["external_id"] for i in items] == [KEY_A, KEY_B]
+    assert items[0]["source_ids"] == {"atlas.row": "01JROW1", "steam": "ACH_1"}
+    assert items[1]["source_ids"] == {"atlas.row": "01JROW2"} and items[1]["hidden"] is True
+    assert set(items[0]) <= {"name", "external_id", "hidden", "description", "global_percent", "icon_url",
+                             "locked_icon_url", "kind", "tier", "points", "source_ids"}  # no field the 1.1.19 host rejects
+
+
+def test_an_atlas_without_keys_falls_back_to_the_row_id(atlas, monkeypatch):
+    items = _catalogue(atlas, monkeypatch, [{"id": "01JROW1", "name": "Old Atlas"}])
+    assert items[0]["external_id"] == "01JROW1" and items[0]["source_ids"] == {"atlas.row": "01JROW1"}
+
+
+@pytest.mark.parametrize("bad", ["ak1:short", "ak2:" + "a" * 26, "ak1:" + "A" * 26, "ak1:" + "1" * 26, "", None, 7, ["ak1"]])
+def test_a_malformed_key_is_never_forwarded_as_the_identity(atlas, monkeypatch, bad):
+    items = _catalogue(atlas, monkeypatch, [{"id": "01JROW1", "key": bad, "name": "Bad key"}])
+    assert items[0]["external_id"] == "01JROW1"
+
+
+def test_the_bridge_keeps_its_slot_when_an_entry_carries_eight_provider_ids(atlas, monkeypatch):
+    ids = {f"src{n}": f"v{n}" for n in range(12)}
+    items = _catalogue(atlas, monkeypatch, [{"id": "01JROW1", "key": KEY_A, "name": "Crowded", "external_ids": ids}])
+    assert len(items[0]["source_ids"]) == 8 and items[0]["source_ids"]["atlas.row"] == "01JROW1"
+
+
+def test_entries_sharing_a_key_are_delivered_once(atlas, monkeypatch):
+    items = _catalogue(atlas, monkeypatch, [{"id": "01JROW1", "key": KEY_A, "name": "First"},
+                                            {"id": "01JROW9", "key": KEY_A, "name": "Same key, other row"}])
+    assert [i["name"] for i in items] == ["First"]
+
+
 def test_declares_the_achievements_resource(atlas):
     assert atlas.DECLARATION["metadata_resources"] == ["entity", "achievements"]
 
@@ -366,7 +412,7 @@ def test_achievements_resource_returns_the_catalogue_validated_against_the_host_
                         "description": "Finish chapter 1", "global_percent": 40.5,
                         "icon_url": f"https://atlas.test/media/{DIGEST}",  # Atlas's public path, not the token-gated one
                         "locked_icon_url": "https://atlas.test/media/" + "d" * 64, "kind": "missable", "tier": "gold",
-                        "points": 50, "source_ids": {"steam": "ACH_1"}}
+                        "points": 50, "source_ids": {"atlas.row": "ach_1", "steam": "ACH_1"}}
     assert items[1]["hidden"] is True and "icon_url" not in items[1]
     assert "title" not in result["metadata"]  # the achievements resource carries only the catalogue
 
