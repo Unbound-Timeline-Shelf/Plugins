@@ -43,9 +43,9 @@ def test_workflow_selects_owned_host_target(tmp_path, scenario, workflow_name, j
         # The parallel lifecycle jobs share one setup action that owns the host selection.
         steps = yaml.safe_load(LIFECYCLE_SETUP.read_text())["runs"]["steps"]
     checkout = next(step for step in steps if step.get("with", {}).get("path") == ".validation/host")
-    assert checkout["with"]["repository"] == "obsoletelabs/unnamed_tracking_app_2"
+    assert checkout["with"]["repository"] == "Unbound-Timeline-Shelf/Unbound-Timeline-Shelf"
     step = next(step for step in steps if step.get("id") == "companion")
-    assert "https://github.com/obsoletelabs/unnamed_tracking_app_2.git" in step["run"]
+    assert "https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf.git" in step["run"]
     if job == "lifecycle":
         assert step["env"]["DEFAULT_HOST_REF"] == VERIFIED_RUNTIME_REF
         if not requested and expected == "main":

@@ -15,7 +15,7 @@ public installer, preserving its existing data and permissions. The screenshot
 shows the new title, the Advanced sessions switch, browser summaries, map and
 administrator table with synthetic users and metadata. Successor trust and
 expiry enforcement on deployed hosts are requested in
-[host issue #7](https://github.com/obsoletelabs/unnamed_tracking_app_2/issues/7).
+[host issue #7](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/issues/7).
 
 ![Extended Session Manager administrator preview](assets/extended-session-manager.jpg)
 
@@ -43,7 +43,7 @@ browser summary for a selected marker.
 
 The plugin CI host-contract job selects matching feature branches in the owned
 host repository, falling back to `main`. Publication requires the
-[companion host PR](https://github.com/obsoletelabs/unnamed_tracking_app_2/pull/5)
+[companion host PR](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/pull/5)
 to merge before the plugin release uses the new page capabilities. The host's full
 backend suite passes 1,505 tests with two skips, and its additional acceptance
 acquisition regression passes separately. Frontend checks pass 298 tests.
@@ -101,7 +101,7 @@ OS-specific installation prompts remain manual surfaces.
 
 ## Historical 2.0.0 validation
 
-Validation on 1 October 2026, against app `plugin-manager` base `daedc1d8125662065bf27d64ac6311380249a5e6` and plugin base `ed7d1d0299a9fc891fb90dfef7e35f84fcd86320`, using the coordinated local changes. PR #248's actual head `5bf43f22bd4991999cd278c5b201817aae439e85` and stages 1–4 contracts/runtime/UI/grant enforcement were inspected before implementation. The earlier [platform audit](plugin-api-v1-audit.md) describes the prior minimized example; [the current README](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/tree/main/official/extended-session-manager/README.md) supersedes its Session Manager observations.
+Validation on 1 October 2026, against app `plugin-manager` base `daedc1d8125662065bf27d64ac6311380249a5e6` and plugin base `ed7d1d0299a9fc891fb90dfef7e35f84fcd86320`, using the coordinated local changes. PR #248's actual head `5bf43f22bd4991999cd278c5b201817aae439e85` and stages 1–4 contracts/runtime/UI/grant enforcement were inspected before implementation. The earlier [platform audit](plugin-api-v1-audit.md) describes the prior minimized example; [the current README](https://github.com/Unbound-Timeline-Shelf/Plugins/tree/main/official/extended-session-manager/README.md) supersedes its Session Manager observations.
 
 | Check                                                | Result                                                                                                                                                                                                                                         |
 | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

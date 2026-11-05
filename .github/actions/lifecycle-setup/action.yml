@@ -54,12 +54,12 @@ runs:
           elif [ "$COMPANION_BRANCH" = "feat/atlas-plugin-multiplayer" ]; then
             candidate_branch="feat/provider-multiplayer-fields"
           fi
-          if [ "$candidate_branch" != main ] && git ls-remote --exit-code --heads https://github.com/obsoletelabs/unnamed_tracking_app_2.git "refs/heads/$candidate_branch" >/dev/null; then
+          if [ "$candidate_branch" != main ] && git ls-remote --exit-code --heads https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf.git "refs/heads/$candidate_branch" >/dev/null; then
             encoded_branch="$(printf '%s' "$candidate_branch" | jq -sRr @uri)"
             open_prs="$(curl -fsSL \
               -H "Authorization: Bearer $GITHUB_TOKEN" \
               -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/obsoletelabs/unnamed_tracking_app_2/pulls?state=open&head=obsoletelabs%3A${encoded_branch}")"
+              "https://api.github.com/repos/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/pulls?state=open&head=Unbound-Timeline-Shelf%3A${encoded_branch}")"
             if printf '%s' "$open_prs" | jq -e 'length > 0' >/dev/null; then
               ref="$candidate_branch"
             fi
@@ -69,7 +69,7 @@ runs:
         echo "Testing companion repository ref: $ref"
     - uses: actions/checkout@v7
       with:
-        repository: obsoletelabs/unnamed_tracking_app_2
+        repository: Unbound-Timeline-Shelf/Unbound-Timeline-Shelf
         ref: ${{ steps.companion.outputs.ref }}
         path: .validation/host
     - uses: actions/setup-python@v6

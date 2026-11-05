@@ -44,7 +44,7 @@ The official successor additionally grants the exact stable ID
 `example.self-service-session-manager` for **Extended Session Manager**.
 Lookalike IDs and the remaining example namespace are excluded. Host enforcement
 and new public-key deployment are requested in
-[host issue #7](https://github.com/obsoletelabs/unnamed_tracking_app_2/issues/7).
+[host issue #7](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/issues/7).
 An unchanged host does not enforce these new policy fields.
 
 Follow the [independent catalogue tutorial](../publishing/community-catalogue.md)

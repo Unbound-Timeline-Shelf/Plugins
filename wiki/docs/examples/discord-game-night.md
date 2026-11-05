@@ -47,7 +47,7 @@ the host cannot inherit grants from an unverified publisher. Use the normal
 update flow to preserve saved data, rather than uninstalling with purge.
 
 For unpublished branch testing, download **unsigned-dist** from the plugin repository's
-[Plugin checks workflow](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/actions/workflows/ci.yml).
+[Plugin checks workflow](https://github.com/Unbound-Timeline-Shelf/Plugins/actions/workflows/ci.yml).
 Extract the archive and select the two `.utp` files. Review the source commit and
 permissions. Do not use a random package sent by someone you do not trust.
 
@@ -437,7 +437,7 @@ could therefore raise an unhandled origin-validation error. This is host behavio
 reinstalling Game Night or resetting Discord credentials cannot repair it.
 
 Update the **host application** to include the
-[saved public URL fix](https://github.com/obsoletelabs/unnamed_tracking_app_2/pull/279),
+[saved public URL fix](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/pull/279),
 then confirm the shared public HTTPS URL in Application settings and retry
 Connections. The fix uses the existing ENV handler and saved setting, and reports
 an actionable HTTP 503 if neither supplies a valid public URL. Source-origin
@@ -479,7 +479,7 @@ for revocation. An administrator can retry cleanup after an interrupted purge.
 ![Saved Game Night participants in native administration](../images/game-night-admin-participants.jpg)
 
 Retroactive account merging/reassignment needs explicit identity proof and
-conflict rules and is tracked in [#45](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/issues/45). For now, reconnect under the intended
+conflict rules and is tracked in [#45](https://github.com/Unbound-Timeline-Shelf/Plugins/issues/45). For now, reconnect under the intended
 source account. Matching display names never merges accounts.
 
 ### Player limits from providers
@@ -491,7 +491,7 @@ two participants' records disagree, the card says so and each person's own range
 still applies, so the narrowest one decides. Missing values stay unknown and are never
 invented. Bulk saves keep each game's known play time and report saved/failed counts
 per instance. Remaining metadata work (editions, platform variants, stale-data states)
-is tracked in [#46](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/issues/46).
+is tracked in [#46](https://github.com/Unbound-Timeline-Shelf/Plugins/issues/46).
 
 ![Provider-reported player limits and a metadata disagreement](../images/discord-game-night-provider-limits.jpg)
 

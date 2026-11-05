@@ -27,8 +27,8 @@ opens the exact Jellyfin item with **Watch Now**.
    and press **Approve identity**. Approval prevents another user selecting an
    account they do not own. Users never need the server URL or credential.
 
-![Administrator server settings](https://raw.githubusercontent.com/obsoletelabs/unnamed_tracking_app_plugins/main/docs/assets/screenshots/jellyfin-admin-settings.png)
-![Explicit library mapping](https://raw.githubusercontent.com/obsoletelabs/unnamed_tracking_app_plugins/main/docs/assets/screenshots/jellyfin-library-mapping.png)
+![Administrator server settings](https://raw.githubusercontent.com/Unbound-Timeline-Shelf/Plugins/main/wiki/docs/assets/screenshots/jellyfin-admin-settings.png)
+![Explicit library mapping](https://raw.githubusercontent.com/Unbound-Timeline-Shelf/Plugins/main/wiki/docs/assets/screenshots/jellyfin-library-mapping.png)
 
 ## User setup
 
@@ -39,7 +39,7 @@ instructions and your host user ID, rather than exposing other users' accounts.
 Unlinking stops your subscription and retains imported media. Disabling the plugin
 stops all workers; enabling it resumes durable work and subscribed periodic syncs.
 
-![User account mapping](https://raw.githubusercontent.com/obsoletelabs/unnamed_tracking_app_plugins/main/docs/assets/screenshots/jellyfin-user-mapping.png)
+![User account mapping](https://raw.githubusercontent.com/Unbound-Timeline-Shelf/Plugins/main/wiki/docs/assets/screenshots/jellyfin-user-mapping.png)
 
 ## Library mapping and supported media
 
@@ -90,7 +90,7 @@ playback is not proxied, and Jellyfin may ask you to sign in. Missing, removed o
 other-user mappings show an unavailable message. The host button uses declared
 external-navigation behavior; the native panel also offers a normal safe link.
 
-![Watch Now on the real media page](https://raw.githubusercontent.com/obsoletelabs/unnamed_tracking_app_plugins/main/docs/assets/screenshots/jellyfin-watch-now.png)
+![Watch Now on the real media page](https://raw.githubusercontent.com/Unbound-Timeline-Shelf/Plugins/main/wiki/docs/assets/screenshots/jellyfin-watch-now.png)
 
 ## Sync behavior
 
@@ -112,7 +112,7 @@ survive runtime restart and errors use exponential delay up to one hour. Manual
 Sync now permits an earlier retry. Default periodic interval is 15 minutes
 (minimum 5, maximum 1440); periodic sync is opt-in per user.
 
-![Synchronization status](https://raw.githubusercontent.com/obsoletelabs/unnamed_tracking_app_plugins/main/docs/assets/screenshots/jellyfin-sync-status.png)
+![Synchronization status](https://raw.githubusercontent.com/Unbound-Timeline-Shelf/Plugins/main/wiki/docs/assets/screenshots/jellyfin-sync-status.png)
 
 ## Credentials and security
 

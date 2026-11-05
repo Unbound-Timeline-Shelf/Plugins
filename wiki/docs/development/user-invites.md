@@ -45,7 +45,7 @@ one additional day. No account auto-login occurs, and marketing unsubscribe head
 are omitted from invitation mail.
 
 See [notification routing](notifications.md) and the
-[source and setup](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/tree/main/official/user-invites).
+[source and setup](https://github.com/Unbound-Timeline-Shelf/Plugins/tree/main/official/user-invites).
 
 ## Administrator controls
 

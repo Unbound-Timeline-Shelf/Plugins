@@ -1,6 +1,6 @@
 # Scoped Document Viewer: PR #241 behavior comparison
 
-The canonical implementation, permissions, format policy, build instructions and restrictions are documented in the [plugin README](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/tree/main/examples/scoped-document-viewer/README.md). This page is suitable for linking from the plugin examples wiki. The repository's GitHub wiki was unavailable during this implementation; no independent wiki page was published.
+The canonical implementation, permissions, format policy, build instructions and restrictions are documented in the [plugin README](https://github.com/Unbound-Timeline-Shelf/Plugins/tree/main/examples/scoped-document-viewer/README.md). This page is suitable for linking from the plugin examples wiki. The repository's GitHub wiki was unavailable during this implementation; no independent wiki page was published.
 
 Baseline: `Rosefall-a/unnamed_tracking_app` PR #241 head `a9b7d3102c1efec08a5bf11a919c6d2204376ebc`. Platform: `plugin-manager` head `daedc1d8125662065bf27d64ac6311380249a5e6`, including stages 1–4 and later installation/lifecycle fixes. Plugin baseline: `2293839`.
 

@@ -5,7 +5,7 @@ The stable ID `example.self-service-session-manager` is preserved for updates;
 new releases use the official signer through an exact-ID trust grant. Historical
 demo packages retain their original signatures. Installing a newly signed release
 requires the successor public key and exact-ID policy described in
-[host issue #7](https://github.com/obsoletelabs/unnamed_tracking_app_2/issues/7).
+[host issue #7](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/issues/7).
 
 The 2.x series ports application [PR #248](https://github.com/Rosefall-a/unnamed_tracking_app/pull/248), inspected at head `5bf43f22bd4991999cd278c5b201817aae439e85`. Current branch previews use Plugin API 1.1. The stable ID remains `example.self-service-session-manager`. This replaces the minimized metadata/Refresh example.
 

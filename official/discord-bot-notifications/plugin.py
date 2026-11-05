@@ -23,7 +23,7 @@ from sdk.plugin_protocol import GatewayRequestError, request
 PLUGIN_ID = "official.discord-bot-notifications"
 PROVIDER_ID = PLUGIN_ID + ".dm"
 DISCORD_API = "https://discord.com/api/v10"
-DISCORD_USER_AGENT = "UnnamedTrackingDiscordBot (https://github.com/obsoletelabs/unnamed_tracking_app, 1.0)"
+DISCORD_USER_AGENT = "UnnamedTrackingDiscordBot (https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf, 1.0)"
 _USERNAME = re.compile(r"^[a-z0-9._]{2,32}$")
 _SNOWFLAKE = re.compile(r"^[0-9]{17,20}$")
 _LINK_TTL = 600

@@ -5,7 +5,7 @@ that implements `games.import` with artwork addresses, connection sync actions a
 personal scheduled tasks. Older hosts reject this package during compatibility review;
 use an earlier Epic release on a host that predates 1.1.19. This plugin uses the existing SDK v1.1.1 wire helper.
 The host page/sign-in support is completed by
-[host PR40](https://github.com/obsoletelabs/unnamed_tracking_app_2/pull/40).
+[host PR40](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/pull/40).
 
 ## Experimental service dependency
 
@@ -167,7 +167,7 @@ unavailable. They are not deleted, and they become available again when a later
 import lists them.
 
 Report persistent Epic sign-in or import failures as an
-[issue in this repository](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/issues),
+[issue in this repository](https://github.com/Unbound-Timeline-Shelf/Plugins/issues),
 not to Epic or the host application. Include the plugin version (shown in
 **Settings → Plugins**), the host release or image tag you deployed and the exact
 message. Never include the authorization code, the text of Epic's sign-in page,

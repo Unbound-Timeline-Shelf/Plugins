@@ -15,7 +15,7 @@ and the user confirmation when adapting it.
 <!-- recipe: external-links -->
 ```python
 def run(values: dict) -> dict:
-    return {"redirect_url": "https://github.com/obsoletelabs/unnamed_tracking_app_plugins"}
+    return {"redirect_url": "https://github.com/Unbound-Timeline-Shelf/Plugins"}
 ```
 
 Add this action to `ui.json` and list its ID in both `manifest.ui.actions` and a page:

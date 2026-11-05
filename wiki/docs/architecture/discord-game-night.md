@@ -19,7 +19,7 @@ every item in the umbrella issue is released. Start with the
 | Native multiplayer editing | Host `src/frontend/src/components/game/GamePlayFields.vue`, `GamePlayPanel.vue`, `components/BulkEditModal.vue` | General library feature, not Discord-specific |
 | Saved participant administration | Activity `native/`, `privacy.py`; host `src/backend/src/features/public_app_admin.py` | Explicit admin grant, installation scope, credential-free summaries; plugin scrubs its own rooms |
 
-The host's [public-app contract and route matrix](https://github.com/obsoletelabs/unnamed_tracking_app_2/blob/feat/plugin-discord-activity-host/wiki/docs/development/plugin-public-apps.md)
+The host's [public-app contract and route matrix](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/blob/feat/plugin-discord-activity-host/wiki/docs/development/plugin-public-apps.md)
 lists the exact delegated operations and ordinary/admin API rejection behavior.
 Core Steam/IGDB and other built-in metadata providers remain host features.
 
@@ -128,7 +128,7 @@ saved Activity data from **My rules** (the `forget` operation: games, rules, vot
 and room confirmations; cached shortlists are cleared, other people's inputs and
 every tracking library are untouched). Hosts can enable a **verified libraries only**
 room policy, where self-reported games never count as games or ownership. Verified retroactive linking is tracked
-in [#45](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/issues/45).
+in [#45](https://github.com/Unbound-Timeline-Shelf/Plugins/issues/45).
 
 ## Launch contexts and deployment
 
@@ -159,25 +159,25 @@ Discord's launch restrictions.
 
 | Issue | Implemented / covered by the paired PRs | Remaining |
 | --- | --- | --- |
-| [Host #119](https://github.com/obsoletelabs/unnamed_tracking_app_2/issues/119) | Generic delegated boundary, scopes, public sessions, broker, rejection/ownership tests, native consent UI | Whole ordinary-route audit beyond the integration matrix |
-| [Host #120](https://github.com/obsoletelabs/unnamed_tracking_app_2/issues/120) | Platform-neutral contracts and UI | Non-Discord reference client/integration |
-| [Plugin #28](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/issues/28) | Existing bot extended for verified Activity identity; notifications preserved | Persistent online presence / notification profile linking remain separate |
-| [#33](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/issues/33) | Multiplayer Activity MVP implementation | Umbrella also includes later community/federation work; keep open |
-| [#34](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/issues/34) | Repository map, architecture/sequence/state diagrams, context and flow matrices here | Discovery deliverables complete |
-| [#35](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/issues/35) | Identity/roles, scopes, retention, isolation, concurrency and administrator purge contracts | Self-service deletion/profile in #39; account linking in #45 |
-| [#36](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/issues/36) | Independent shell, onboarding, guest/linked labels, reconnect and configuration | Full lifecycle acceptance on deployed installation |
-| [#37](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/issues/37) | Independent sources, provenance/access freshness, saved presets, reads and consented writes | Live independent-source outage test |
-| [#38](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/issues/38) | Three selection modes, personal hard rules, explainable exclusions/vetoes | Custom owner thresholds; pricing intentionally paused |
-| [#39](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/issues/39) | Hosted guest self-reports and retention; no host-account impersonation | Guest profile card and early delete (**My rules**), verified-only room policy | Cross-instance guest identity boundaries |
-| [#40](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/issues/40) | Host-aligned styling, setup/player guides, screenshots and regression tests | Full narrow/mobile/focus/motion, GDM, source-outage and disable/uninstall acceptance; live provider override needs provider rows |
-| [#41](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/issues/41) | No persistent community product in MVP | Follow-up |
-| [#42](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/issues/42) | Independent source consent is not federation | Follow-up |
-| [#43](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/issues/43) | Public boundaries support future work | Follow-up extension contracts remain |
-| [#45](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/issues/45) | Administrator unlink/purge available | Verified retroactive account linking and conflict handling |
-| [#46](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/issues/46) | Optional presets, bulk editor, labeled inference and group approval | Provider-labeled limits (host contract from unnamed_tracking_app_2#329), conflict flag, room-confirmed precedence, per-instance bulk results | Editions/platform variants, duration provenance, stale-data states |
+| [Host #119](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/issues/119) | Generic delegated boundary, scopes, public sessions, broker, rejection/ownership tests, native consent UI | Whole ordinary-route audit beyond the integration matrix |
+| [Host #120](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/issues/120) | Platform-neutral contracts and UI | Non-Discord reference client/integration |
+| [Plugin #28](https://github.com/Unbound-Timeline-Shelf/Plugins/issues/28) | Existing bot extended for verified Activity identity; notifications preserved | Persistent online presence / notification profile linking remain separate |
+| [#33](https://github.com/Unbound-Timeline-Shelf/Plugins/issues/33) | Multiplayer Activity MVP implementation | Umbrella also includes later community/federation work; keep open |
+| [#34](https://github.com/Unbound-Timeline-Shelf/Plugins/issues/34) | Repository map, architecture/sequence/state diagrams, context and flow matrices here | Discovery deliverables complete |
+| [#35](https://github.com/Unbound-Timeline-Shelf/Plugins/issues/35) | Identity/roles, scopes, retention, isolation, concurrency and administrator purge contracts | Self-service deletion/profile in #39; account linking in #45 |
+| [#36](https://github.com/Unbound-Timeline-Shelf/Plugins/issues/36) | Independent shell, onboarding, guest/linked labels, reconnect and configuration | Full lifecycle acceptance on deployed installation |
+| [#37](https://github.com/Unbound-Timeline-Shelf/Plugins/issues/37) | Independent sources, provenance/access freshness, saved presets, reads and consented writes | Live independent-source outage test |
+| [#38](https://github.com/Unbound-Timeline-Shelf/Plugins/issues/38) | Three selection modes, personal hard rules, explainable exclusions/vetoes | Custom owner thresholds; pricing intentionally paused |
+| [#39](https://github.com/Unbound-Timeline-Shelf/Plugins/issues/39) | Hosted guest self-reports and retention; no host-account impersonation | Guest profile card and early delete (**My rules**), verified-only room policy | Cross-instance guest identity boundaries |
+| [#40](https://github.com/Unbound-Timeline-Shelf/Plugins/issues/40) | Host-aligned styling, setup/player guides, screenshots and regression tests | Full narrow/mobile/focus/motion, GDM, source-outage and disable/uninstall acceptance; live provider override needs provider rows |
+| [#41](https://github.com/Unbound-Timeline-Shelf/Plugins/issues/41) | No persistent community product in MVP | Follow-up |
+| [#42](https://github.com/Unbound-Timeline-Shelf/Plugins/issues/42) | Independent source consent is not federation | Follow-up |
+| [#43](https://github.com/Unbound-Timeline-Shelf/Plugins/issues/43) | Public boundaries support future work | Follow-up extension contracts remain |
+| [#45](https://github.com/Unbound-Timeline-Shelf/Plugins/issues/45) | Administrator unlink/purge available | Verified retroactive account linking and conflict handling |
+| [#46](https://github.com/Unbound-Timeline-Shelf/Plugins/issues/46) | Optional presets, bulk editor, labeled inference and group approval | Provider-labeled limits (host contract from unnamed_tracking_app_2#329), conflict flag, room-confirmed precedence, per-instance bulk results | Editions/platform variants, duration provenance, stale-data states |
 
-Implementation PRs: [host #121](https://github.com/obsoletelabs/unnamed_tracking_app_2/pull/121)
-and [plugins #44](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/pull/44).
+Implementation PRs: [host #121](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/pull/121)
+and [plugins #44](https://github.com/Unbound-Timeline-Shelf/Plugins/pull/44).
 The early 0.1.0 release uses the registered official signer and catalogue, with
 manual updates. The remaining live acceptance checks above stay open; signed
 publication does not mark those checks or deferred features complete.

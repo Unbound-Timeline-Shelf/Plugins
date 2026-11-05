@@ -211,6 +211,7 @@ def validate_package(path: Path, *, full: bool = False) -> None:
                 provenance.get("repository") not in {
                     "Rosefall-a/unnamed-tracking-mobile-app",
                     "obsoletelabs/unnamed-tracking-mobile-app",
+                    "Unbound-Timeline-Shelf/Mobile-Apps",
                 }
                 or provenance.get("source_path") != "pwa"
                 or provenance.get("version") != asset_version

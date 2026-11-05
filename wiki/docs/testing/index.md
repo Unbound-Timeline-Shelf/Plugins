@@ -42,7 +42,7 @@ build must produce identical bytes for the same source/commit/signer.
 
 ## Exercise the real host contract
 
-Clone `obsoletelabs/unnamed_tracking_app_2` at `main` into `.validation/host`
+Clone `Unbound-Timeline-Shelf/Unbound-Timeline-Shelf` at `main` into `.validation/host`
 and run `python tools/check_host_contract.py --host-root .validation/host` after
 building the preview. It uses actual validators/verifier/registry; it never
 enables code during inspection.
@@ -51,7 +51,7 @@ Both integration workflows select matching feature branches in that owned host
 repository. Contract CI falls back to `main`; runtime CI retains its separately
 verified fallback revision below. Explicit workflow-dispatch refs still take
 precedence. The host's companion checkout targets
-`obsoletelabs/unnamed_tracking_app_plugins` with the same matching-branch convention.
+`Unbound-Timeline-Shelf/Plugins` with the same matching-branch convention.
 
 On Linux, `python tools/check_reference_lifecycle.py --host-root .validation/host`
 builds signed disposable release sequences for UI/API, report, notifier and
@@ -74,7 +74,7 @@ grants, new-scope staging, release policy, rollback and failed worker restoratio
 independent Jellyfin preview and `lifecycle-pwa` the PWA signing and browser lifecycle. The aggregate
 status fails if a selected job fails or is skipped, and accepts a skip only for an area the change
 selection did not choose. Use the host's
-[validation instructions](https://github.com/obsoletelabs/unnamed_tracking_app_2/blob/main/wiki/docs/development/plugin-validation.md)
+[validation instructions](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/blob/main/wiki/docs/development/plugin-validation.md)
 for database, Linux, environment and frontend prerequisites. Never replace this
 with a pretend gateway or fake host to get a green lifecycle claim.
 

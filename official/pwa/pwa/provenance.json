@@ -1,6 +1,6 @@
 {
-  "repository": "Rosefall-a/unnamed-tracking-mobile-app",
-  "version": "0.0.4",
+  "repository": "Unbound-Timeline-Shelf/Mobile-Apps",
+  "version": "0.0.5",
   "source_path": "pwa",
   "sha256": {
     "manifest.webmanifest": "3c847628081be385d87a887d5df7fa7c2994e0c7a67ceba9613f77d566606a3a",
@@ -9,7 +9,7 @@
     "pwa-icon.svg": "33d30871e87f333c9ccef6618c6783424481f354f6b6c09ef8dec9c0d209963a",
     "icon-192.png": "54de1241522aa6f6c1a218e409fb071cbbf63fdc7f4e77bd790a8d55c28acf51",
     "icon-512.png": "7242124f181675e97adf040c373cb46004e27f87ffb74de0fcf8ad4b29c7b6c4",
-    "version.json": "b764057f0047c5aef6a25092c3be9305abd45602af5142ee8fd0f7f1ebe423eb",
-    "README.md": "31c7a772cab1086ae042e792df5b7aef45cea5adcbf787051e4c9d88d402d1a8"
+    "version.json": "dfe3f3c8c4c0280828e526f9b64b72f625bed4ccd7989643298d5f385be470f8",
+    "README.md": "04e5aa1f0b06849e9b45d96b88479884a547bdf2d46108e362f7e0768d3efe79"
   }
 }

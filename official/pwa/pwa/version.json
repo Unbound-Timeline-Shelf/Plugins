@@ -1,4 +1,4 @@
 {
-  "version": "0.0.4",
+  "version": "0.0.5",
   "release_policy": "Explicit 0.0.x patches during integration; 1.0.0 requires a human stable-release decision."
 }

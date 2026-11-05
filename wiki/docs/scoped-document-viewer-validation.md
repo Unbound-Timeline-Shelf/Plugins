@@ -68,7 +68,7 @@ The direct comparison loads the reference helper from the supplied PR checkout. 
 
 ## Delivery restrictions
 
-See the [feature comparison](scoped-document-viewer.md) and [plugin README](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/tree/main/examples/scoped-document-viewer/README.md) for the explicit PR behavior differences: the platform's 5 MiB PDF cap, sandbox PDF controls, disabled HTML navigation, indexed-document requirement, and unavailable read-only upload/rename operations. The host contract update must accompany the plugin.
+See the [feature comparison](scoped-document-viewer.md) and [plugin README](https://github.com/Unbound-Timeline-Shelf/Plugins/tree/main/examples/scoped-document-viewer/README.md) for the explicit PR behavior differences: the platform's 5 MiB PDF cap, sandbox PDF controls, disabled HTML navigation, indexed-document requirement, and unavailable read-only upload/rename operations. The host contract update must accompany the plugin.
 
 The 1.4.0 artifact is an **unsigned local build**, not a trusted signed release. Trusted release signing requires the existing publisher workflow and its private credentials. No signatures or keys were fabricated. The independent plugin GitHub wiki was unavailable (`Repository not found`); a wiki-ready guide is committed in this repository instead.
 

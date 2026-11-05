@@ -25,7 +25,7 @@ jobs:
       - name: Checkout plugins-template repository
         uses: actions/checkout@v4
         with:
-          repository: obsoletelabs/plugins-template
+          repository: Unbound-Timeline-Shelf/Plugins-Template
           path: plugins-template
           token: ${{ secrets.TEMPLATE_SYNC_TOKEN || secrets.GITHUB_TOKEN }}
 

@@ -26,9 +26,9 @@ Epic's key art, banner, logo and icon (the host downloads them). Release dates,
 genres/tags and achievements are not imported.
 
 The plugin README is the maintained reference for
-[imported fields](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/blob/main/official/epic-games/README.md#imported-fields)
+[imported fields](https://github.com/Unbound-Timeline-Shelf/Plugins/blob/main/official/epic-games/README.md#imported-fields)
 and
-[troubleshooting and support](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/blob/main/official/epic-games/README.md#troubleshooting-and-support),
+[troubleshooting and support](https://github.com/Unbound-Timeline-Shelf/Plugins/blob/main/official/epic-games/README.md#troubleshooting-and-support),
 including the plugin's error messages, reconnection with **Replace sign-in** and
 where to report problems.
 
@@ -83,7 +83,7 @@ sign-in.
 
 ![Personal autosync schedule](../assets/plugin-integrated-ui/after-background-tasks.png)
 
-See the [plugin README](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/blob/main/official/epic-games/README.md)
+See the [plugin README](https://github.com/Unbound-Timeline-Shelf/Plugins/blob/main/official/epic-games/README.md)
 for build/install instructions, limitations and protocol references. Branch CI
 supplies an unsigned `.utp` preview; signed publication uses the existing protected
 official pipeline. Live-account validation requires signing in on Epic itself;

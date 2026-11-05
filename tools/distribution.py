@@ -21,7 +21,7 @@ ROOT = Path(__file__).parents[1]
 SEMVER = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 TAG = re.compile(r"^[a-z0-9][a-z0-9-]{0,47}$")
 DEFAULT_BASE = (
-    "https://raw.githubusercontent.com/obsoletelabs/unnamed_tracking_app_plugins/main"
+    "https://raw.githubusercontent.com/Unbound-Timeline-Shelf/Plugins/main"
 )
 RETIREMENT_FILE = "retired_plugins.json"
 

@@ -56,7 +56,7 @@ restart. Local ratings fill only when absent; local watch edits require review
 when Jellyfin subsequently changes watch state.
 
 These are generic v1 additions on `media.write`; neither plugin gets extra host
-access. See the host's [full public contract](https://github.com/obsoletelabs/unnamed_tracking_app_2/blob/main/docs/plugin-api-v1.md)
+access. See the host's [full public contract](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/blob/main/docs/plugin-api-v1.md)
 for fields and bounds. Credentials use the private storage broker, and JSON login
 POST uses `network.request` under `network.outbound` with verified TLS. A subscribed
 background user may receive `notifications.send` only with that separate live grant.

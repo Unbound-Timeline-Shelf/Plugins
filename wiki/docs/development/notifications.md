@@ -71,8 +71,8 @@ Recovery additionally requires a verified external destination and explicit user
 The maintained Discord bot declares an independent per-account provider with server and
 username fields. PRIVATE delivery works before proof. Core UUID/revisions map to exactly
 one Discord account, with no broadcast fallback. Its legacy grouped provider/native
-dashboard remain PRIVATE and retain existing links. See the [bot migration guide](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/blob/main/official/discord-bot-notifications/README.md).
-The paired host is [PR71](https://github.com/obsoletelabs/unnamed_tracking_app_2/pull/71).
+dashboard remain PRIVATE and retain existing links. See the [bot migration guide](https://github.com/Unbound-Timeline-Shelf/Plugins/blob/main/official/discord-bot-notifications/README.md).
+The paired host is [PR71](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/pull/71).
 
 ## Scoped lifecycle replay (Plugin API 1.1.4)
 
@@ -82,7 +82,7 @@ Only the authenticated user/current installation's own source notification lifec
 
 Responses contain `events`, `cursor`, `has_more` and `resync_required`. Process and deduplicate stable event UUIDs before saving the next opaque cursor. A null cursor begins retained history. When `resync_required` is true, discard stale local assumptions and restart using the returned cursor; expired history cannot be reconstructed. This is a change feed rather than a state snapshot. Core publication occurs through the existing job loop in bounded batches; backlog may span multiple ticks.
 
-The host's server-configurable default is 90 days (`NOTIFICATION_AUDIT_RETENTION_DAYS`), independently of inbox retention and longer-lived dedupe receipts. The core owns ordering, audit persistence, leases and delivery retries. These exported schemas are compared with the paired host's public models by `tools/check_host_contract.py`; plugins import only the SDK. This extension depends on host PR [#47](https://github.com/obsoletelabs/unnamed_tracking_app_2/pull/47).
+The host's server-configurable default is 90 days (`NOTIFICATION_AUDIT_RETENTION_DAYS`), independently of inbox retention and longer-lived dedupe receipts. The core owns ordering, audit persistence, leases and delivery retries. These exported schemas are compared with the paired host's public models by `tools/check_host_contract.py`; plugins import only the SDK. This extension depends on host PR [#47](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/pull/47).
 
 ## Failure simulation
 
@@ -95,7 +95,7 @@ The maintained `official.password-reset` plugin enables the host's reserved pass
 
 Configure a SECURE external recovery-capable destination and separately enable recovery delivery. Built-in SMTP stays in the host; plugin transports also need the independent high-risk provider grant. Core preferences/admin routing and final authority checks still apply. No internal inbox or browser push reset secret, raw SMTP fallback or all-user destination query is provided.
 
-Gateway operations `auth_flows.password_reset.register` (mode/name/lifetime) and `.unregister` require an administrator and this exact installation's explicit global grant. Lifetime is 600–3600 seconds. Configuration changes/withdrawal invalidate outstanding tokens. Public request responses do not reveal account eligibility. Links use fragments, expire and are consumed only by a host POST. Reset revokes sessions, retains API keys and requires normal sign-in. Disable/uninstall/reinstall cannot reuse old credentials. See the [maintained plugin setup](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/tree/main/official/password-reset).
+Gateway operations `auth_flows.password_reset.register` (mode/name/lifetime) and `.unregister` require an administrator and this exact installation's explicit global grant. Lifetime is 600–3600 seconds. Configuration changes/withdrawal invalidate outstanding tokens. Public request responses do not reveal account eligibility. Links use fragments, expire and are consumed only by a host POST. Reset revokes sessions, retains API keys and requires normal sign-in. Disable/uninstall/reinstall cannot reuse old credentials. See the [maintained plugin setup](https://github.com/Unbound-Timeline-Shelf/Plugins/tree/main/official/password-reset).
 
 Startup uses auth_flows.password_reset.restore to resume only an already-active matching installation and definition. Withdrawal or reinstallation requires explicit activation; regranting permission cannot revive an old reset credential.
 
@@ -116,7 +116,7 @@ API 1.1.10 adds live recovery status and the generic Users action dialog. API 1.
 
 The bot now declares a separate PUBLIC channel provider through the generic API. Admin Discord settings provide a channel allowlist and paginated server-member directory; account Discord settings select a default allowed channel for new notification destinations. Add each channel under Account → Notifications, then choose its per-type routes. Text/announcement channels only; View Channel and Send Messages are required; Embed Links enables rich cards, with the text fallback described below. The allowlist and Discord server/type are checked again for every send. Channel membership never grants PRIVATE/SECURE trust. Unverified username enrollment supports normal PRIVATE DMs; recovery needs a concrete host-verified SECURE account destination, explicit recovery opt-in and the high-risk grant.
 
-Online presence and direct profile integration are tracked in [issue #28](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/issues/28).
+Online presence and direct profile integration are tracked in [issue #28](https://github.com/Unbound-Timeline-Shelf/Plugins/issues/28).
 
 
 The Discord bot prefers rich cards. A definite HTTP 403 rejection of the embed
@@ -143,7 +143,7 @@ long to fit is omitted whole with a prompt to open the app.
 
 The maintained Discord bot is published under the registered **Unnamed Tracking Official**
 publisher and keeps **manual updates**. Use its signed package from the
-[catalogue](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/blob/main/list.json).
+[catalogue](https://github.com/Unbound-Timeline-Shelf/Plugins/blob/main/list.json).
 Unsigned branch previews remain separate from published signed releases. Previously independently signed previews require uninstall/fresh installation,
 credential configuration, destination activation and fresh host verification/recovery
 consent. Signing identity changes must not inherit old destination proof. Current
@@ -191,7 +191,7 @@ facts, a typed action and presentation hints. The host keeps ownership of recipi
 credentials, trust, consent, retention, scheduling, aggregation, dispatch and audit; a plugin
 supplies facts for event types in its own namespace. The helpers are in `sdk/notification_stories.py`
 and are bundled only into packages that declare one of the capabilities below. The paired host
-documentation is the host's [plugin contract](https://github.com/obsoletelabs/unnamed_tracking_app_2/blob/main/wiki/docs/development/notification-contract.md).
+documentation is the host's [plugin contract](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/blob/main/wiki/docs/development/notification-contract.md).
 
 **Release order:** the host change ships first, then this SDK and any plugin that targets
 1.1.14. Do not publish a package that targets 1.1.14 against an older host; manifests that declare

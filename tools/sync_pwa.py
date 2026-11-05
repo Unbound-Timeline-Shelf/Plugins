@@ -44,13 +44,16 @@ def sync(mobile_root: Path, host_root: Path, *, check: bool = False) -> None:
             else:
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 destination.write_bytes(data)
-    provenance = {"repository": "obsoletelabs/unnamed-tracking-mobile-app", "version": version,
+    provenance = {"repository": "Unbound-Timeline-Shelf/Mobile-Apps", "version": version,
                   "source_path": "pwa", "sha256": hashes}
     path = target / "provenance.json"
     if check:
         actual = json.loads(path.read_text())
         # Keep verifiable provenance of previously reviewed assets after a repository transfer.
-        if actual.get("repository") == "Rosefall-a/unnamed-tracking-mobile-app":
+        if actual.get("repository") in {
+            "Rosefall-a/unnamed-tracking-mobile-app",
+            "obsoletelabs/unnamed-tracking-mobile-app",
+        }:
             actual["repository"] = provenance["repository"]
         if actual != provenance:
             raise ValueError("PWA provenance differs")

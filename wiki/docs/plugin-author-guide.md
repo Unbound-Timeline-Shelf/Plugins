@@ -193,7 +193,7 @@ Both repository CI workflows now run the host's real-worker/browser lifecycle
 acceptance against the current `plugin-manager` branch. It uses a disposable
 database and publisher, verifies live official downloads, and tests a signed
 Jellyfin release sequence. See the host's
-[integration validation instructions](https://github.com/obsoletelabs/unnamed_tracking_app_2/blob/main/wiki/docs/development/plugin-validation.md)
+[integration validation instructions](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/blob/main/wiki/docs/development/plugin-validation.md)
 for local prerequisites, commands and environment limits.
 
 ## Runtime and SDK
@@ -501,7 +501,7 @@ bytes, so permission review must explain that it receives approved content and i
 own configured secrets. The host never shares SMTP credentials. Failures are safely
 normalized and isolated; core retains global attempt/history/retry state.
 
-The maintained [Discord webhook](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/blob/main/official/discord-notifications/README.md)
+The maintained [Discord webhook](https://github.com/Unbound-Timeline-Shelf/Plugins/blob/main/official/discord-notifications/README.md)
 exercises declared-field configuration; the separately maintained Discord bot
 exercises linked-account enrollment. Historical protected demo renderers still work.
 
