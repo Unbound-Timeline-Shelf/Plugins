@@ -13,7 +13,7 @@ Python/declarative exercise. Check the host version before claiming compatibilit
 Install Python 3.11+ and Git. Clone this repository into your own working directory:
 
 ```sh
-git clone https://github.com/obsoletelabs/unnamed_tracking_app_plugins.git
+git clone https://github.com/Unbound-Timeline-Shelf/Plugins.git
 cd unnamed_tracking_app_plugins
 python -m venv .venv
 # Linux/macOS: source .venv/bin/activate

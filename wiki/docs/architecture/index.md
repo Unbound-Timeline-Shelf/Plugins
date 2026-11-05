@@ -1,6 +1,6 @@
 # Architecture for plugin authors
 
-The main [Unnamed Tracking application](https://github.com/obsoletelabs/unnamed_tracking_app_2)
+The main [Unnamed Tracking application](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf)
 is the host. This repository supplies independently packaged behavior, examples,
 the public protocol helper and distribution tools. You do not need its database
 models or frontend source to write a plugin.

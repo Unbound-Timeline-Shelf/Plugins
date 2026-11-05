@@ -11,7 +11,7 @@ database models or private host modules.
 ## Install a plugin
 
 Download the versioned `.utp` linked by [the generated catalogue](list.json) or
-[GitHub Releases](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/releases).
+[GitHub Releases](https://github.com/Unbound-Timeline-Shelf/Plugins/releases).
 A `.utp` is a validated ZIP containing a manifest and payload, not a renamed Python file.
 In Unnamed Tracking open **Settings → Plugins → Install plugin**, select the
 package/source, review identity, publisher/signature, compatibility and permissions,
@@ -37,7 +37,7 @@ Catalogue membership does not establish trust. Publisher signing and host
 permission approval are separate. Unsigned preview packages remain untrusted.
 Full API/native frontend authority needs particular review; request narrow scopes.
 
-To test a branch or pull request, open its [Plugin checks workflow run](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/actions/workflows/ci.yml)
+To test a branch or pull request, open its [Plugin checks workflow run](https://github.com/Unbound-Timeline-Shelf/Plugins/actions/workflows/ci.yml)
 and download **unsigned-dist**. This job runs for every non-draft PR and for pushes to branches without an open PR
 (a branch with a PR is covered once by the PR run), independently of the full test job. Extract the artifact and upload the chosen
 `.utp` through the install screen. Review permissions and explicitly consent to
@@ -142,7 +142,7 @@ manifest; signed publication can advance source versions, so do not assume a
 fixed filename from an earlier release.
 
 For sharing, download **unsigned-dist** or **validated-plugin-distribution** from
-the [Plugin checks run](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/actions/workflows/ci.yml).
+the [Plugin checks run](https://github.com/Unbound-Timeline-Shelf/Plugins/actions/workflows/ci.yml).
 These artifacts include the generated packages/catalogue and contain no private
 signing keys. Public conformance tools and dated review evidence live in `tools/`
 and `wiki/docs/`. Keep local environment files, credentials, cookies and private

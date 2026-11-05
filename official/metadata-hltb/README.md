@@ -1,7 +1,7 @@
 # HowLongToBeat Metadata Provider
 
 The updated source requires public Plugin API **1.1.13** and the host completion-estimates
-update in [host PR #136](https://github.com/obsoletelabs/unnamed_tracking_app_2/pull/136).
+update in [host PR #136](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/pull/136).
 It uses no account or API key. Install the corresponding published `.utp` through
 Plugin Manager and grant its declared metadata, network and storage permissions.
 

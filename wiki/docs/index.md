@@ -29,7 +29,7 @@ The [example map](examples/index.md) links small references and real demos.
 Historical validation reports record dated evidence, not promises about future
 host releases.
 
-The main [application wiki](https://github.com/obsoletelabs/unnamed_tracking_app_2/tree/main/wiki)
+The main [application wiki](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/tree/main/wiki)
 documents users, deployment and application development. This Material wiki
 documents independent plugin authors: build, test, sign, publish and recover using
 the public contract. Run `python -m mkdocs serve` from this repository to browse it.

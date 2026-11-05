@@ -1,7 +1,7 @@
 # Integration access reference client
 
 `reference-clients/integration-access/` is the packaged, non-Discord reference
-consumer of the host's [user-approved integration access](https://github.com/obsoletelabs/unnamed_tracking_app_2/blob/main/wiki/docs/integrations/user-delegation.md)
+consumer of the host's [user-approved integration access](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/blob/main/wiki/docs/integrations/user-delegation.md)
 contract. It is for companion apps, automation tools and other independently
 hosted integrations. It uses only the versioned public HTTP contract and the Python
 standard library.

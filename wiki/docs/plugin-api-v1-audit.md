@@ -6,7 +6,7 @@ Plugin Manager contract, use [the author guide](plugin-author-guide.md) and
 
 Audited on 1 October 2026 (Australia/Perth):
 
-- Plugin repository `main`: [`ed7d1d0299a9fc891fb90dfef7e35f84fcd86320`](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/commit/ed7d1d0299a9fc891fb90dfef7e35f84fcd86320).
+- Plugin repository `main`: [`ed7d1d0299a9fc891fb90dfef7e35f84fcd86320`](https://github.com/Unbound-Timeline-Shelf/Plugins/commit/ed7d1d0299a9fc891fb90dfef7e35f84fcd86320).
 - Host `plugin-manager`: [`daedc1d8125662065bf27d64ac6311380249a5e6`](https://github.com/Rosefall-a/unnamed_tracking_app/commit/daedc1d8125662065bf27d64ac6311380249a5e6).
 
 This is an audit, not a reference-plugin feature implementation. Plugin source, manifests, SDK, checked-in packages, catalogue, workflows, signing keys and signing behavior were left unchanged. The package builder was exercised in an isolated copy so existing signatures were preserved.
@@ -39,7 +39,7 @@ Any later manifest/payload corrections should receive appropriate new plugin ver
 
 ## Recent namespaced backend route changes
 
-[`7f459a7`](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/commit/7f459a7062ca6bf7ad9e73e3875f4e60b27dc0cd) opted two existing plugins into stage 4. Adding these examples was optional; the following parts are required **once those handlers are shipped**:
+[`7f459a7`](https://github.com/Unbound-Timeline-Shelf/Plugins/commit/7f459a7062ca6bf7ad9e73e3875f4e60b27dc0cd) opted two existing plugins into stage 4. Adding these examples was optional; the following parts are required **once those handlers are shipped**:
 
 - Document Viewer: version `1.2.0` → `1.3.0`; add `backend.routes.plugin` v1 and its permission; declare two relative `plugin`-scope GET routes; expose `list_documents_route` and `read_document_route`.
 - Session Manager: version `1.1.0` → `1.2.0`; add the same route capability and permission; declare two user routes and three admin routes; expose five corresponding handlers. All three admin declarations use `authorization: admin`.

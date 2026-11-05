@@ -29,7 +29,7 @@ overrides historical exceptions.
 interval. `plugin_ids` grants exact IDs alongside existing prefix scopes; the
 official session manager exception does not grant the entire example namespace.
 The host currently ignores these policy fields and does not yet trust the new
-public keys. [Host issue #7](https://github.com/obsoletelabs/unnamed_tracking_app_2/issues/7)
+public keys. [Host issue #7](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/issues/7)
 requests that implementation and deployment. This repository's checks do not
 claim expiry is enforced by an unchanged host.
 

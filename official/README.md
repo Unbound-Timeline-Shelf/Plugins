@@ -15,7 +15,7 @@ details and maps. It retains the ID `example.self-service-session-manager` so
 existing installations can update. New releases use the scoped official signer;
 historical demo-signed archives keep their original identity. The successor-key
 trust and expiry requirements are tracked in
-[host issue #7](https://github.com/obsoletelabs/unnamed_tracking_app_2/issues/7).
+[host issue #7](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/issues/7).
 
 [Unnamed Tracking PWA](pwa/README.md) is maintained official functionality,
 published through the scoped official signing identity. See the [catalogue](../list.json) for its current signed version.

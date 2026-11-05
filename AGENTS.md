@@ -510,7 +510,7 @@ Verify:
 For changes affecting the host/plugin contract, coordinate testing with:
 
 ```text
-obsoletelabs/unnamed_tracking_app_2
+Unbound-Timeline-Shelf/Unbound-Timeline-Shelf
 ```
 
 The plugin repository's tests should validate the plugin side.

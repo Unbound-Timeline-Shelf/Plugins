@@ -335,3 +335,31 @@ def test_packaged_pwa_rejects_source_provenance_drift(scoped_checkout, pwa_versi
             archive.writestr(name, data)
     with pytest.raises(ValueError, match="provenance hash differs"):
         validate_package(changed, full=True)
+
+
+def test_packaged_pwa_accepts_current_and_legacy_source_repositories(scoped_checkout, pwa_version):
+    root, env = scoped_checkout
+    result = build(root, env)
+    assert result.returncode == 0, result.stderr
+    source = root / f".validation/dist/official.pwa-{pwa_version}.utp"
+    with zipfile.ZipFile(source) as original:
+        contents = {name: original.read(name) for name in original.namelist()}
+    name = "payload/pwa/provenance.json"
+    provenance = json.loads(contents[name])
+    candidate = root / "provenance-test.utp"
+    for identity in (
+        "Unbound-Timeline-Shelf/Mobile-Apps",
+        "obsoletelabs/unnamed-tracking-mobile-app",
+        "Rosefall-a/unnamed-tracking-mobile-app",
+        "unrelated/project",
+    ):
+        with zipfile.ZipFile(candidate, "w") as archive:
+            for entry, data in contents.items():
+                if entry == name:
+                    data = json.dumps({**provenance, "repository": identity}).encode()
+                archive.writestr(entry, data)
+        if identity == "unrelated/project":
+            with pytest.raises(ValueError, match="provenance identity"):
+                validate_package(candidate, full=True)
+        else:
+            validate_package(candidate, full=True)

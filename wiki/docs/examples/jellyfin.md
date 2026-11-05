@@ -1,7 +1,7 @@
 # Jellyfin Media Sync demo
 
 This page describes `example.jellyfin-media-sync`, which remains a demo.
-The separate [official preview](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/blob/main/official/jellyfin-media-sync/README.md)
+The separate [official preview](https://github.com/Unbound-Timeline-Shelf/Plugins/blob/main/official/jellyfin-media-sync/README.md)
 starts at 0.0.1 with multiple servers/accounts, richer enrichment and separate
 admin/user panels. Installation, trust, permissions and storage remain independent.
 
@@ -9,7 +9,7 @@ Version 3 uses one administrator-configured Jellyfin server, approved per-user
 identities, explicit Movies/TV/Anime library mapping and native episode completion.
 It contributes Watch Now through the existing media-detail extension slot.
 
-See the [complete setup, behavior, upgrade and troubleshooting guide](https://github.com/obsoletelabs/unnamed_tracking_app_plugins/blob/main/examples/jellyfin-media-sync/README.md).
+See the [complete setup, behavior, upgrade and troubleshooting guide](https://github.com/Unbound-Timeline-Shelf/Plugins/blob/main/examples/jellyfin-media-sync/README.md).
 The host needs the generic Plugin API v1 `media.sync`, `network.request` and
 background-subscription operations documented in its development wiki.
 

@@ -18,7 +18,7 @@ The host reuses its original compact source tiles, colored badges, key buttons
 and expandable forms. Core tiles are hardcoded in the host; optional plugin registrations add extra
 tiles with live health classifications. Administrators choose **System default**; **My account**
 edits only their user scope. Existing account-import connections remain below
-the metadata tiles. See the [host screenshots and workflow](https://github.com/obsoletelabs/unnamed_tracking_app_2/blob/feat/metadata-provider-orchestration/wiki/docs/integrations/metadata.md).
+the metadata tiles. See the [host screenshots and workflow](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/blob/feat/metadata-provider-orchestration/wiki/docs/integrations/metadata.md).
 
 Core Steam, IGDB, SteamGridDB, TVmaze, AniList, AniZip and OMDb implementations
 are maintained inside the host and need no plugin installation. Existing core
@@ -93,7 +93,7 @@ omitted, and ambiguous title matches remain unresolved unless an HLTB ID is know
 The host independently applies native IGDB values only where other completion
 estimate sources supply no useful figure.
 
-The source depends on [host PR #136](https://github.com/obsoletelabs/unnamed_tracking_app_2/pull/136).
+The source depends on [host PR #136](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/pull/136).
 Direct token/search verification on 15 October 2026 succeeded for Portal; historical
 live observations below describe the older implementation. Development previews
 and final signed publication retain the normal package integrity and trust workflow.

@@ -29,7 +29,7 @@ CASES = {
     "storage": ("storage.md", [{"value": '{"schema_version": 1, "game_count": 3}'}],
                 [("storage.get", "plugin.storage")], {"report": {"schema_version": 1, "game_count": 3}}),
     "external-links": ("external-links.md", [], [],
-                       {"redirect_url": "https://github.com/obsoletelabs/unnamed_tracking_app_plugins"}),
+                       {"redirect_url": "https://github.com/Unbound-Timeline-Shelf/Plugins"}),
 }
 
 
