@@ -1,7 +1,7 @@
 # PWA assets
 
 These existing assets are the foundation of the maintained `official.pwa` plugin.
-PWA integration version is recorded in `version.json` and remains **0.0.4**;
+PWA integration version is recorded in `version.json`;
 native Android, Android WebView and Windows/WinUI versions are independent.
 
 The host owns `/service-worker.js`, `/manifest.webmanifest`, and public `/pwa/`
@@ -45,4 +45,4 @@ previews are visibly unverified. The PWA ZIP in the existing mobile release
 workflow remains a source asset bundle, not another native client.
 
 Run `node --test pwa/tests/*.test.mjs`. Real host/plugin lifecycle
-and browser acceptance lives in `unnamed_tracking_app/tools/check_pwa_lifecycle.py`.
+and browser acceptance lives in the [host lifecycle tool](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/blob/main/tools/check_pwa_lifecycle.py).
