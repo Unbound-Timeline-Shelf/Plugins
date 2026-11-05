@@ -1,10 +1,10 @@
 # Unnamed Tracking PWA
 
-The maintained official PWA integrates the existing mobile repository's PWA
-assets with the complete Unnamed Tracking web application. Initial version:
-**0.0.1**. The current v1.1 preview uses plugin release **0.0.4**
-with reviewed mobile assets at **0.0.4**. Stable 1.0.0 requires an
-explicit human release decision.
+The maintained official PWA integrates the mobile repository's PWA assets with
+the complete Unnamed Tracking web application. The plugin release version and
+the separately reviewed mobile asset version are recorded in
+[`manifest.json`](manifest.json) and [`pwa/version.json`](pwa/version.json).
+Stable 1.0.0 requires an explicit human release decision.
 
 Install its `.utp` through Plugin Manager, review `frontend.pwa`, and enable it.
 The permission publishes public install metadata and icons and enables the
@@ -21,7 +21,9 @@ remain independent and unchanged.
 The installed app opens the full website and uses its normal login/session/SSO.
 Passwords are never saved by this plugin. Session expiry returns to normal login.
 Offline navigation displays a neutral waiting-for-internet page, never account
-data. No `/api/` response is cached. Reconnect restores normal navigation.
+data. Private API and authentication responses are never cached. A bounded
+exception caches only immutable, digest-addressed public theme assets.
+Reconnect restores normal navigation.
 
 The full application, sign-in/SSO redirects and neutral offline page follow
 Light, Dark or System and the last device palette, including Orange, Green and
@@ -36,7 +38,7 @@ the server. Offline devices cannot learn about a server-side removal immediately
 An installed shortcut remains an ordinary website shortcut, with plugin settings
 guidance. Reinstallation gets a new installation/cache identity.
 
-Assets are synchronized from `unnamed-tracking-mobile-app/pwa` using
+Assets are synchronized from [Mobile-Apps/pwa](https://github.com/Unbound-Timeline-Shelf/Mobile-Apps/tree/main/pwa) using
 `tools/sync_pwa.py --mobile-root PATH --host-root PATH`; `--check` validates exact
 provenance and a plugin release that does not precede its mobile asset version.
 The host never executes a worker from an
