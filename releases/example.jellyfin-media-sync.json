@@ -4167,6 +4167,251 @@
         "integration"
       ],
       "version": "3.10.0"
+    },
+    {
+      "automatic_update": true,
+      "build": {
+        "builder": "tools/build_packages.py",
+        "contract_revision": "c50e6d0cc08e4649371def34bbef80f5e226e324",
+        "legacy": false,
+        "source_commit": "4ff61cb4c92a8546f93f4b8fa6df406785a3db2c",
+        "source_committed_at": "2026-11-05T20:56:01+08:00",
+        "source_digest": "da5309bf983a433d5321f0f86e56f32e44ea63e448930ef3e6d369916d1e9d2d",
+        "source_path": "examples/jellyfin-media-sync",
+        "version_bump": "minor"
+      },
+      "icon": {
+        "path": "icon.svg",
+        "sha256": "5de24c1b950d8e2610a6932a6fb57ad6308e7f95a4fadfabe43b08f4555adfbc"
+      },
+      "lifecycle": "published",
+      "lifecycle_stages": [
+        "source",
+        "validated",
+        "built",
+        "catalogued",
+        "published",
+        "downloadable"
+      ],
+      "manifest": {
+        "api_contract_version": "1.1.0",
+        "application_version_range": "^1.0.0",
+        "capabilities": [
+          {
+            "name": "media.write",
+            "version": 1
+          },
+          {
+            "name": "plugin.storage",
+            "version": 1
+          },
+          {
+            "name": "tasks.background",
+            "version": 1
+          },
+          {
+            "name": "network.outbound",
+            "version": 1
+          },
+          {
+            "name": "frontend.native",
+            "version": 1
+          },
+          {
+            "name": "frontend.navigation.main",
+            "version": 1
+          },
+          {
+            "name": "frontend.navigation.settings",
+            "version": 1
+          },
+          {
+            "name": "frontend.settings",
+            "version": 1
+          },
+          {
+            "name": "frontend.routes",
+            "version": 1
+          },
+          {
+            "name": "frontend.page.extend",
+            "version": 1
+          },
+          {
+            "name": "frontend.context.media",
+            "version": 1
+          },
+          {
+            "name": "frontend.placement.sidebar",
+            "version": 1
+          },
+          {
+            "name": "frontend.placement.settings.account",
+            "version": 1
+          }
+        ],
+        "dependencies": [],
+        "description": "Working example of installation-wide Jellyfin configuration, approved identities, durable media sync, episode completion and native Watch Now contributions.",
+        "entrypoint": "plugin:main",
+        "integrity": {
+          "key_id": "unnamed-tracking-examples-2026-10-07-v2",
+          "sha256": "48ba4fe54b0c1e7bf5c5bd5d60614e9ddb20b34b2da828c530fa1ad3805dba7b",
+          "signature": "v2:rzoeBA8kFlwjvNngsIOByA6MQLFuoLXvDNBkPMHeseW502iRwn51Qjkt6fi93JFOPsfr/WXbv51TjPQDitcLBg=="
+        },
+        "manifest_version": 1,
+        "name": "Jellyfin Media Sync (Demo)",
+        "native_frontend": {
+          "entry": "native/app.js",
+          "styles": [
+            "native/style.css"
+          ]
+        },
+        "permissions": [
+          {
+            "capability": {
+              "name": "media.write",
+              "version": 1
+            },
+            "rationale": "Upsert Movies, TV and Anime with stable provider identity and conflict-checked completion."
+          },
+          {
+            "capability": {
+              "name": "plugin.storage",
+              "version": 1
+            },
+            "rationale": "Secure installation credential, approved user links, media mappings and bounded synchronization checkpoints."
+          },
+          {
+            "capability": {
+              "name": "tasks.background",
+              "version": 1
+            },
+            "rationale": "Synchronize each explicitly subscribed user through live user-scoped media grants."
+          },
+          {
+            "capability": {
+              "name": "network.outbound",
+              "version": 1
+            },
+            "rationale": "Contact only the configured Jellyfin server after a live grant check; redirects are refused."
+          },
+          {
+            "capability": {
+              "name": "frontend.native",
+              "version": 1
+            },
+            "rationale": "Render native Vue configuration, write-only credential entry and progress using the host SDK."
+          },
+          {
+            "capability": {
+              "name": "frontend.navigation.main",
+              "version": 1
+            },
+            "rationale": "Add Jellyfin Sync to the sidebar."
+          },
+          {
+            "capability": {
+              "name": "frontend.navigation.settings",
+              "version": 1
+            },
+            "rationale": "Link to the native Jellyfin Settings contribution."
+          },
+          {
+            "capability": {
+              "name": "frontend.settings",
+              "version": 1
+            },
+            "rationale": "Provide native configuration and status within Settings."
+          },
+          {
+            "capability": {
+              "name": "frontend.routes",
+              "version": 1
+            },
+            "rationale": "Expose the plugin-owned Jellyfin sync route."
+          },
+          {
+            "capability": {
+              "name": "frontend.page.extend",
+              "version": 1
+            },
+            "rationale": "Contribute a plugin-owned Watch Now panel to media detail pages."
+          },
+          {
+            "capability": {
+              "name": "frontend.context.media",
+              "version": 1
+            },
+            "rationale": "Resolve Watch Now for the authenticated media-page context."
+          },
+          {
+            "capability": {
+              "name": "frontend.placement.sidebar",
+              "version": 1
+            },
+            "rationale": "Place this extension beneath the existing library and media headings in the main sidebar. This grants placement throughout the sidebar, not access to library records."
+          },
+          {
+            "capability": {
+              "name": "frontend.placement.settings.account",
+              "version": 1
+            },
+            "rationale": "Place these settings beneath the built-in account headings. Approval covers this settings area and its folders, not other settings areas or backend actions."
+          }
+        ],
+        "plugin_id": "example.jellyfin-media-sync",
+        "sdk_version_range": "^1.1.0",
+        "storage": {
+          "quota_mb": 32
+        },
+        "ui": {
+          "actions": [
+            "save-master",
+            "save-token",
+            "test-connection",
+            "save-mappings",
+            "authorize-identity",
+            "get-config",
+            "save-user",
+            "unlink-user",
+            "sync-now",
+            "status",
+            "watch-now",
+            "resolve-conflict"
+          ],
+          "menus": [
+            "sync"
+          ],
+          "pages": [
+            "sync",
+            "watch"
+          ],
+          "settings": []
+        },
+        "version": "3.11.0"
+      },
+      "package": {
+        "filename": "example.jellyfin-media-sync-3.11.0.utp",
+        "format": "utp-v1",
+        "size_bytes": 23001
+      },
+      "package_sha256": "e4a13e5cd249f986ef207a7fb5ca94e2ca62338268a1df3383e44ff64efc779e",
+      "plugin_id": "example.jellyfin-media-sync",
+      "publisher": "Unnamed Tracking Official",
+      "readme": "# Jellyfin Media Sync (Demo)\n\nThis is a working example of Plugin API capabilities, retained as a demonstration\nunder `example.jellyfin-media-sync`. It is not the supported official feature.\nThe separate official preview uses `official.jellyfin-media-sync` and begins at\n0.0.1; it does not inherit this demo's configuration, credentials or grants.\n\nAn installation-wide Jellyfin integration for Movies, TV and Anime, using the\nexisting Plugin API v1 gateway, secure plugin storage and supervised worker.\nThe native plugin page handles setup and sync status; its media-page contribution\nopens the exact Jellyfin item with **Watch Now**.\n\n## Administrator setup\n\n1. Install the built `.utp` on the host branch containing the generic `media.sync`,\n   background subscription and `network.request` additions. Review permissions\n   before enabling. Version 3 requires those additions; older hosts are unsupported.\n2. Open **Jellyfin Sync** in Settings or the sidebar. Enter the server URL, including\n   any reverse-proxy base path, and a **server API key** created in Jellyfin's\n   administration dashboard. Use HTTPS outside a trusted local network.\n3. Save the server, then **Test connection & discover**. The plugin discovers\n   Jellyfin users and virtual libraries, and persists the connection result.\n4. Map each included library. For example, Movies → Movies, TV Shows → TV,\n   Anime → Anime. Choose Ignore to exclude a library. Save the mappings.\n5. Approve each host user's corresponding Jellyfin identity. Users provide the host\n   user ID shown in their account panel; select their discovered Jellyfin identity\n   and press **Approve identity**. Approval prevents another user selecting an\n   account they do not own. Users never need the server URL or credential.\n\n![Administrator server settings](https://raw.githubusercontent.com/Unbound-Timeline-Shelf/Plugins/main/wiki/docs/assets/screenshots/jellyfin-admin-settings.png)\n![Explicit library mapping](https://raw.githubusercontent.com/Unbound-Timeline-Shelf/Plugins/main/wiki/docs/assets/screenshots/jellyfin-library-mapping.png)\n\n## User setup\n\nOpen Jellyfin Sync, choose your approved Jellyfin identity, optionally enable\nperiodic synchronization, and press **Link my account**. Press **Sync now** to\nqueue a sync for your account. Without administrator approval the panel shows\ninstructions and your host user ID, rather than exposing other users' accounts.\nUnlinking stops your subscription and retains imported media. Disabling the plugin\nstops all workers; enabling it resumes durable work and subscribed periodic syncs.\n\n![User account mapping](https://raw.githubusercontent.com/Unbound-Timeline-Shelf/Plugins/main/wiki/docs/assets/screenshots/jellyfin-user-mapping.png)\n\n## Library mapping and supported media\n\nExplicit mapping always wins over genre/tag detection. Automatic mode retains\nmetadata-based anime detection as a fallback. Movies and Series roots are imported;\nTV and anime episodes retain season/episode numbers and watched flags. Anime films\nuse a single native episode so their completion has the same model semantics.\nUnsupported/malformed items, including episodes without usable numbering, are\ncounted as skipped. Specials with season number zero are supported.\n\nAn existing item changing category is flagged for manual review instead of\ncreating a duplicate or discarding notes/list references. Changing mappings\nrestarts the bounded census. A server or approved identity change requires\nrelinking; a server change also invalidates the destination-bound credential and\nrequires discovery and mapping again.\n\n## Identity and completion\n\nIdentity is scoped by plugin ID, host user, server, Jellyfin user and Jellyfin item\nID. The host creates a deterministic existing-media primary key; the plugin stores\nthat host ID, remote ID and last watch-state revision. Renames update unlocked\nmetadata without creating another row. Equal titles with different IDs remain\nseparate. Plugin code never imports host modules or accesses the host database.\n\n| Field | Authority and behavior |\n| --- | --- |\n| Film completion | Jellyfin `Played=true` → WATCHED; false → WATCHLIST, or IN_PROGRESS when a playback position exists. A partial position never means completed. |\n| TV/anime episodes | Jellyfin supplies each episode's watched boolean, including watched reversals. Native episode flags and season counters update together. |\n| Season/show completion | WATCHED only after a successful complete episode inventory with a nonempty episode set and every episode watched. Partial sets stay IN_PROGRESS or WATCHLIST. A Series object's existence/Played flag never completes the show. |\n| Titles, genres, artwork | Jellyfin supplies unlocked metadata. Host `locked_fields` are respected. Artwork URLs contain no credential. |\n| Ratings, notes, favorites, rewatches | Host-owned; synchronization does not replace them. |\n| Local watch edits | Optimistic revision comparison detects changes since the previous import and reports a conflict. It does not silently replace them. |\n\nUse **Use Jellyfin watched state** on a reported watch-state conflict to explicitly\naccept the remote state. The host checks the revision again, so a newer edit still\nproduces a conflict. Category changes and local deletions require manual review.\nTwo-way playback synchronization is **not enabled**: the public host API does not\nprovide a complete provider-neutral local playback change stream. This integration\nwrites no watched/progress changes back to Jellyfin.\n\n## Watch Now\n\nOn an imported film, TV or anime detail page, the plugin contributes Watch Now\nthrough `media.detail.after-header` and the existing contextual action mechanism.\nThe destination is `<server>/web/index.html#!/details?id=<Jellyfin item ID>`.\nSeries pages open the series; anime films open the film. No token is included,\nplayback is not proxied, and Jellyfin may ask you to sign in. Missing, removed or\nother-user mappings show an unavailable message. The host button uses declared\nexternal-navigation behavior; the native panel also offers a normal safe link.\n\n![Watch Now on the real media page](https://raw.githubusercontent.com/Unbound-Timeline-Shelf/Plugins/main/wiki/docs/assets/screenshots/jellyfin-watch-now.png)\n\n## Sync behavior\n\nA worker handles users in round-robin order. Each tick processes at most four\n100-record remote pages, with persisted library/phase/offset checkpoints. Root\nmetadata is normalized and compared before sending host writes; unchanged items\nare not reimported. Episodes are checked separately so watched changes and\nunwatched reversals are detected even when show metadata has not changed.\nFinalization processes at most 25 mapped roots per tick. A completed census marks\nremoved roots unavailable for Watch Now while retaining host media and local data;\nmissing remote episodes are removed through the public API after inventory checks.\n\nJellyfin does not expose a reliable universal timestamp filter for watched\nreversals. The plugin therefore uses a bounded rolling census with incremental\nhost writes, rather than claiming an unreliable timestamp-only sync. Large\nlibraries take multiple ticks. No unbounded remote full-library request is made.\nManual requests arriving during work survive for a later tick. Retry checkpoints\nsurvive runtime restart and errors use exponential delay up to one hour. Manual\nSync now permits an earlier retry. Default periodic interval is 15 minutes\n(minimum 5, maximum 1440); periodic sync is opt-in per user.\n\n![Synchronization status](https://raw.githubusercontent.com/Unbound-Timeline-Shelf/Plugins/main/wiki/docs/assets/screenshots/jellyfin-sync-status.png)\n\n## Credentials and security\n\nOne server credential is stored in the existing reserved `secrets/master_token`\nnamespace and bound to the exact normalized server URL. It is never returned by\nconfiguration/status/actions, placed in URLs, or stored per user. The administrator\nalone can change the server, token, library mapping and account approval. User\nidentity comes from the host's authenticated action context, never a caller's\nclaimed host user ID. Background subscriptions are host-owned and each delegated\nwrite rechecks both background and media grants for the target user.\n\nThe host's generic outbound JSON operation runs outside the isolated worker and\nchecks the live `network.outbound` grant before HTTP. It refuses redirects, checks\nTLS normally, caps responses at 4 MiB and uses an 8-second timeout. The server\ncredential travels only in an Authorization header. Error/status messages omit\nremote response bodies and arbitrary gateway exception details.\n\nPermissions: `media.write`, `plugin.storage`, `tasks.background`,\n`network.outbound`, native frontend, navigation, settings/routes, media contexts\nand page extension. No database, full API, games, documents or session access is\nrequested. Native frontend remains a privileged permission under existing review.\n\n## Troubleshooting and upgrade\n\n* **No approved identities:** copy your host user ID to the administrator and ask\n  them to approve your own discovered Jellyfin identity.\n* **Connection/credential error:** verify the final server URL, base path, TLS,\n  API key access and host egress. A redirect requires configuring its final URL.\n* **Permission error:** review both installation and target-user grants. Revoked\n  grants stop imports; the plugin never substitutes the enabling user's scope.\n* **Partial completion:** inspect skipped items and episode numbering. Completion\n  waits for a complete inventory; ongoing shows may become incomplete as new\n  episodes arrive.\n* **Watch-state conflict:** review your host edit and explicitly accept Jellyfin\n  state only if desired. Ratings/notes remain local.\n* **Watch Now unavailable:** relink the account, check its approved identity and\n  library mappings, and complete a sync. Deleted remote roots retain host history.\n* **Updating from 2.x:** configure a master server credential and approve/link users\n  explicitly. Old user-bound credentials are never promoted to installation-wide\n  authority and are removed when a replacement master credential is saved.\n  Legacy title-matched imports lack durable remote identity; review/archive those\n  legacy records before initial version-3 import. Automatic title matching would\n  risk merging unrelated films, so this upgrade does not guess their identity.\n\n## Testing, build and release\n\n```sh\npytest\npython tools/build_packages.py\npython tools/verify_packages.py .validation/dist/*.utp\npython tools/validate_packages.py .validation/dist/*.utp\npython -m mkdocs build --strict\n```\n\nVersion 3.0.0 is a major configuration migration. Release artifacts and metadata\nare generated together by the existing publisher tooling; historical `dist/`\npackages are immutable. Development previews are unsigned in `.validation/dist`.\nProduction signing uses the existing reviewed publisher workflow. Acceptance uses\na disposable signing key and never commits private signing material.\n\nCross-repository verification runs the actual built, signed `.utp` against the\nhost/runtime, PostgreSQL and a Jellyfin HTTP fixture: master setup, identity\napproval/link, Movies/TV/Anime import, remote watched changes, native completion,\nrepeat sync, exact Watch Now, restart, disable/enable, update, rollback and\npreserving reinstall. See host `tools/check_plugin_repository_lifecycle.py`.\nScreenshots are captured from that real installation using disposable fixture data.\n",
+      "release_notes": "Clarify demonstration status. The independently installed official preview uses a separate identity and does not inherit demo grants.",
+      "sha256": "48ba4fe54b0c1e7bf5c5bd5d60614e9ddb20b34b2da828c530fa1ad3805dba7b",
+      "signing": {
+        "key_id": "unnamed-tracking-examples-2026-10-07-v2",
+        "sha256": "48ba4fe54b0c1e7bf5c5bd5d60614e9ddb20b34b2da828c530fa1ad3805dba7b",
+        "signature": "v2:rzoeBA8kFlwjvNngsIOByA6MQLFuoLXvDNBkPMHeseW502iRwn51Qjkt6fi93JFOPsfr/WXbv51TjPQDitcLBg=="
+      },
+      "tags": [
+        "demo",
+        "media",
+        "integration"
+      ],
+      "version": "3.11.0"
     }
   ],
   "version": 1

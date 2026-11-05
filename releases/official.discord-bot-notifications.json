@@ -1710,6 +1710,261 @@
         "notifications"
       ],
       "version": "0.5.1"
+    },
+    {
+      "automatic_update": false,
+      "build": {
+        "builder": "tools/build_packages.py",
+        "contract_revision": "c50e6d0cc08e4649371def34bbef80f5e226e324",
+        "legacy": false,
+        "source_commit": "4ff61cb4c92a8546f93f4b8fa6df406785a3db2c",
+        "source_committed_at": "2026-11-05T20:56:01+08:00",
+        "source_digest": "76c0cc0bbfefe1c101972d2b2891fd1f730efe6ddc2b1851e14aa8f549f9f870",
+        "source_path": "official/discord-bot-notifications",
+        "version_bump": "patch"
+      },
+      "icon": {
+        "path": "native/icon.svg",
+        "sha256": "70043a46cc87bca3a0d6cd9e3ee7b0592e1291c73364c43fbe952f4ac97e0549"
+      },
+      "lifecycle": "published",
+      "lifecycle_stages": [
+        "source",
+        "validated",
+        "built",
+        "catalogued",
+        "published",
+        "downloadable"
+      ],
+      "manifest": {
+        "api_contract_version": "1.1.17",
+        "application_version_range": ">=1.0.0",
+        "capabilities": [
+          {
+            "name": "notification_providers.register",
+            "version": 1
+          },
+          {
+            "name": "notification_providers.deliver",
+            "version": 1
+          },
+          {
+            "name": "plugin.storage",
+            "version": 1
+          },
+          {
+            "name": "network.outbound",
+            "version": 1
+          },
+          {
+            "name": "frontend.native",
+            "version": 1
+          },
+          {
+            "name": "frontend.settings",
+            "version": 1
+          },
+          {
+            "name": "frontend.navigation.settings",
+            "version": 1
+          },
+          {
+            "name": "frontend.placement.settings.admin",
+            "version": 1
+          },
+          {
+            "name": "frontend.placement.settings.account",
+            "version": 1
+          },
+          {
+            "name": "notification_providers.sensitive",
+            "version": 1
+          },
+          {
+            "name": "notification_destinations.read",
+            "version": 1
+          },
+          {
+            "name": "integrations.identity_provider",
+            "version": 1
+          }
+        ],
+        "dependencies": [],
+        "description": "PRIVATE direct messages with optional host verification, and PUBLIC notifications to administrator-allowed Discord channels.",
+        "entrypoint": "plugin:main",
+        "identity_provider": {
+          "authenticate_action_id": "authenticate-activity",
+          "config_action_id": "activity-config",
+          "revalidate_action_id": "revalidate-activity"
+        },
+        "integrity": {
+          "key_id": "unnamed-tracking-official-2026-10-07-v2",
+          "sha256": "ec8ebbb35de135c852285b21773510fb868b9ea4a6f58598195f3973514ef7dc",
+          "signature": "v2:p9n6fhr6tjKKBOuvRHeYhlW3PIM2K2eoQDQOhQUW9co1r37p7579KaG/WzIUZmjkXbnneMi1MZnMwZI7knH6CQ=="
+        },
+        "manifest_version": 1,
+        "name": "Discord Bot Notifications",
+        "native_frontend": {
+          "activation": "page",
+          "entry": "native/app.js",
+          "styles": [
+            "native/style.css"
+          ]
+        },
+        "permissions": [
+          {
+            "capability": {
+              "name": "notification_providers.register",
+              "version": 1
+            },
+            "rationale": "Register the namespaced Discord direct-message destination contract."
+          },
+          {
+            "capability": {
+              "name": "notification_providers.deliver",
+              "version": 1
+            },
+            "rationale": "Deliver approved content to the exact configured destination. Ordinary PRIVATE DMs work before verification; security/recovery also needs host proof, opt-in and the sensitive grant."
+          },
+          {
+            "capability": {
+              "name": "plugin.storage",
+              "version": 1
+            },
+            "rationale": "Keep the administrator's bot configuration, pending verification challenges and user-to-Discord links inside this plugin's private storage namespace."
+          },
+          {
+            "capability": {
+              "name": "network.outbound",
+              "version": 1
+            },
+            "rationale": "Call Discord API endpoints for bot validation, guild member lookup, verification DMs and notification delivery."
+          },
+          {
+            "capability": {
+              "name": "frontend.native",
+              "version": 1
+            },
+            "rationale": "Render account-link and administrator configuration pages using the host-native UI bridge."
+          },
+          {
+            "capability": {
+              "name": "frontend.settings",
+              "version": 1
+            },
+            "rationale": "Provide account and administrator settings for the Discord bot."
+          },
+          {
+            "capability": {
+              "name": "frontend.navigation.settings",
+              "version": 1
+            },
+            "rationale": "Expose Discord configuration through host settings navigation."
+          },
+          {
+            "capability": {
+              "name": "frontend.placement.settings.admin",
+              "version": 1
+            },
+            "rationale": "Place bot token and server configuration in administrator settings."
+          },
+          {
+            "capability": {
+              "name": "frontend.placement.settings.account",
+              "version": 1
+            },
+            "rationale": "Place verified Discord account linking in account settings."
+          },
+          {
+            "capability": {
+              "name": "notification_providers.sensitive",
+              "version": 1
+            },
+            "rationale": "Optional high-risk access: receive host-issued verification codes and approved security/recovery secrets for individually verified Discord destinations. Without this separate grant normal PRIVATE notifications still work."
+          },
+          {
+            "capability": {
+              "name": "notification_destinations.read",
+              "version": 1
+            },
+            "rationale": "Read only the current user and installation destination IDs, host trust and recovery status to show accurate verification and password-reset eligibility; no addresses or host secrets."
+          },
+          {
+            "capability": {
+              "name": "integrations.identity_provider",
+              "version": 1
+            },
+            "rationale": "Verify Discord OAuth identities and live Activity membership for the separate public app, using this bot configuration."
+          }
+        ],
+        "plugin_id": "official.discord-bot-notifications",
+        "sdk_version_range": "^1.1.17",
+        "storage": {
+          "quota_mb": 8
+        },
+        "ui": {
+          "actions": [
+            "get-config",
+            "save-bot-config",
+            "clear-bot-token",
+            "link-private",
+            "start-link",
+            "confirm-link",
+            "unlink",
+            "test-dm",
+            "configure-destination",
+            "retire-destination",
+            "deliver",
+            "configure-account-destination",
+            "retire-account-destination",
+            "deliver-account",
+            "list-directory",
+            "allow-channels",
+            "channel-choices",
+            "select-channel",
+            "configure-channel-destination",
+            "retire-channel-destination",
+            "deliver-channel",
+            "get-destinations",
+            "list-servers",
+            "save-activity-oauth",
+            "activity-config",
+            "authenticate-activity",
+            "revalidate-activity",
+            "edit-account",
+            "edit-channel",
+            "get-saved-config"
+          ],
+          "menus": [],
+          "pages": [
+            "admin",
+            "account"
+          ],
+          "settings": []
+        },
+        "version": "0.5.2"
+      },
+      "package": {
+        "filename": "official.discord-bot-notifications-0.5.2.utp",
+        "format": "utp-v1",
+        "size_bytes": 52913
+      },
+      "package_sha256": "8485b18a7ef3236c1b9e675785c4edf8a96405f43d1b6be30b180be0c0eb9f0d",
+      "plugin_id": "official.discord-bot-notifications",
+      "publisher": "Unnamed Tracking Official",
+      "readme": "# Discord Bot Notifications\n\nPRIVATE direct messages, optional host-verified SECURE recovery, and PUBLIC channel notifications using a dedicated Discord bot.\n\n**Host requirement:** use a host with Plugin API 1.1.14 (rich embeds, edits and follow-ups; 1.1.11 is enough for the generic provider and native configuration UI only). Older hosts may reject registration or lack the required settings integrations. The updated source requires the independent destination-status read permission; transport and secrets remain plugin-owned.\n\n## Per-account destinations\n\nUse **Settings → Administration → Notifications** to configure **Discord account DM** with a dedicated bot token and server ID. These credentials belong to the plugin and are revision-bound separately from legacy native configuration. The token is write-only. This uses the provider's declared server fields, with no Discord-specific host settings.\n\nIn **Settings → Account → Notifications**, add one **Discord account DM** destination per exact Discord username in that server. Enrollment resolves a single Discord ID and remains PRIVATE; ordinary notifications work immediately, without a code. Changing the username or server configuration invalidates host proof and queued work. Merely renaming the Discord account does not change its saved target.\n\nFor SECURE delivery, separately approve the critical `notification_providers.sensitive` permission, then request and enter the host-generated code from that account's DM. Only the host confirms proof for that exact destination revision. Codes expire after ten minutes. Recovery delivery additionally requires the destination's explicit **Allow recovery messages** choice. This grant exposes verification codes and approved security/recovery content to this plugin; review it accordingly. Without the grant normal PRIVATE delivery still works.\n\nEach attempt sends to exactly one account; missing, retired, changed or differently owned mappings fail instead of broadcasting. Temporary Discord/gateway failures are reported to the host retry queue. Oversized messages fail rather than truncating recovery secrets. The core owns all delivery state.\n\n### Existing bot migration\n\nThe first maintained release is prepared for the existing signed catalogue publication workflow under **Unnamed Tracking Official**, with automatic updates disabled. Until publication succeeds and the bot appears in the catalogue, source/unsigned previews are not a published release.\n\nIf you installed an independently signed preview, uninstall it and freshly install the official package. Reconfigure credentials, activate destinations and repeat host verification and recovery consent. Do not use replacement installation to retain proof across signing identities. Existing preview credentials or verification must not be silently transferred to the official publisher.\n\nThe existing grouped **Discord Bot DM** provider and its native dashboard/account linking remain working as PRIVATE compatibility routes. Plugin link verification is not host SECURE proof. Existing links and tokens are retained and never automatically promoted or copied to the new provider. Configure the new per-account provider, explicitly activate and verify each desired account, then disable the old grouped provider to avoid receiving duplicate ordinary notices. Removing one new destination erases its plugin target into an opaque revision tombstone and leaves other accounts and legacy links intact. Reinstall requires fresh activation/configuration; old credentials cannot be reclaimed.\n\n## Legacy setup\n\n1. Create a dedicated bot application in the Discord Developer Portal. Keep its bot token private; never paste it into a chat or commit it to a repository.\n2. Invite the bot to the Discord server that contains the users who want to link their accounts. Enable the **Server Members Intent** if Discord requires it for member search.\n3. In **Settings → Administration → Discord Bot Notifications**, enter the bot token and that server's numeric ID. The plugin validates the credentials against Discord before saving. The token is write-only and is never returned by the status action.\n4. Users can **Link for PRIVATE notifications** by username without a verification code. Optional legacy profile verification does not promote notification trust. The legacy grouped route remains PRIVATE.\n5. For individual routes, configure **Discord account DM** under **Settings → Administration → Notifications**, then add one destination per username under **Settings → Account → Notifications**. Normal PRIVATE notifications work immediately. For SECURE/recovery delivery, complete the host-issued destination challenge, opt into recovery and grant the provider its separate high-risk permission.\n6. Choose each destination under **Notification types**. The host applies trust, preferences, administrative policy and disclosure before handing approved content to the plugin.\n\nUsername enrollment resolves one exact member of the configured Discord server and stores its stable Discord ID. Zero or ambiguous matches are refused. Users may need to permit server-member DMs. Discord profile/account verification is not required for ordinary PRIVATE notifications.\n\n## PUBLIC server channels\n\nAdministrators load the **Allowed notification channels and server users** directory in Discord bot administration. Text and announcement channels can be allowed individually. The member picker searches the loaded page; **Load more server users** retrieves the next page of up to 1,000 members. Administrators can link a selected Discord member to their own signed-in app account as PRIVATE; this does not change another app user's identity or prove access.\n\nConfigure the separate **Discord server channel** provider in **Administration → Notifications** using its bot token and server ID. Users then choose an allowed default channel in their Discord account settings and add a **Discord server channel** destination in **Account → Notifications**. Leave the destination's channel-ID field blank to use that selected default, or enter an allowed channel ID explicitly. Each destination retains its own channel: changing the default cannot reroute existing work. Per-type notification settings select which messages go to it.\n\nChannels are always **PUBLIC**, including private Discord channels. Core PUBLIC release projections and generic tests may be delivered; private/security/recovery content cannot. Explicit richer media consent retains the host's field allowlist and never promotes trust. The plugin checks the administrator allowlist, server membership and text/announcement type at enrollment and each send. Removing a channel from the allowlist stops future deliveries immediately. The bot requires **View Channel** and **Send Messages**, including category/channel overrides. **Embed Links** enables rich notification cards. When Discord rejects a card with HTTP 403, the plugin tries the same approved content once as text in the same channel/DM, with automatic URL embeds and mentions disabled. Broader access failures still fail; rate limits, network errors and ambiguous server failures use the core retry policy without a second immediate send. Directory listing does not prove it can post.\n\nTokens remain write-only plugin storage; generic server configurations are separately revision-bound. Administrative channel/member discovery is not exposed to ordinary users; users see only allowed channels. Installations, user ownership, destination revisions and server revisions must match for every delivery. Deleted destinations retain target-free tombstones.\n\n## Bot dashboard\n\nThe administrator page deliberately exposes as much non-secret Discord information as the bot can safely discover. It can show:\n\n- bot username, global display name, Discord ID, avatar and verification state;\n- a generated OAuth2 bot invite URL and the intents the plugin expects (`GUILDS` and `GUILD_MEMBERS`);\n- Discord API health and measured plugin-side request time;\n- server name, ID, icon, description, owner ID and vanity code;\n- approximate total and online member counts;\n- server verification level, boost tier/count, preferred locale and NSFW level;\n- enabled Discord server features;\n- AFK, system, rules and public-update channel IDs and related server settings when Discord exposes them;\n- explicit-content filtering, default notification behavior, MFA level and widget state;\n- the bot's server nickname, join time, pending state and assigned roles;\n- the permissions calculated from the bot's effective server roles;\n- the last successful user test DM and last successful notification delivery time for each linked account.\n\nThe dashboard never displays the bot token. Refreshing the dashboard re-queries Discord rather than relying on stale cached identity data.\n\n## Security and behavior\n\n- The bot token is stored in this plugin's private storage namespace, never returned to the frontend after saving, and can be cleared by an administrator. Treat the plugin's data volume as sensitive and back it up accordingly.\n- Link codes expire after ten minutes and failed verification attempts are capped. The verification code is stored only as a hash.\n- The legacy grouped provider remains PRIVATE and cannot receive verification/security/recovery content. The per-account provider becomes SECURE only after independent host proof and requires a separate high-risk handoff grant.\n- The plugin sends DMs only to accounts linked by the same host account; PRIVATE enrollment does not require verification. Each per-account destination delivers only to its configured account. The legacy grouped provider broadcasts only to its remaining compatibility profile links. It disables Discord mention parsing in sent messages.\n- The bot needs only the server access required by this integration. Member discovery uses the Discord member list and therefore may require the Server Members Intent. Keep the token dedicated to this integration and rotate it if exposed.\n- Discord API calls use the plugin's declared `network.outbound` capability through the bounded host gateway. The plugin owns the external Discord network calls and credentials.\n- Notification bodies are bounded before sending and the bot does not interpret notification text as mentions.\n- User links are scoped by the authenticated host user ID inside plugin storage; the host does not receive the Discord credential or own the Discord account mapping.\n\nThe plugin declares its PRIVATE account and PUBLIC channel providers, fields, features, privacy and configuration/delivery actions through the existing generic provider API. The host does not need Discord-specific credential handling or delivery code.\n\nThe native link page now supports **Link for PRIVATE notifications** without receiving a code. Optional legacy profile proof does not upgrade destination trust. For recovery use the separate **Discord account DM** destination in Account → Notifications, host verification, recovery opt-in and the high-risk delivery grant. The administrator must configure its revision-bound server fields in Admin → Notifications. DMs use native rich cards; Discord does not render email HTML. The maintained release uses the registered **Unnamed Tracking Official** publisher and keeps **manual updates**.\n\nAll DMs use native rich cards with spaced paragraphs, an emphasized verification code and a short **here** action link. HTTP delivery does not show the bot as online: persistent Discord Gateway presence is deferred until the host exposes an approved WebSocket transport with connection/heartbeat/reconnect lifecycle. Direct sockets are unavailable in the isolated plugin runtime.\n\n\nText fallback uses spaced paragraphs and named links (View notification, Reset\nyour password, Accept invitation or Verify destination). It reserves room for a\ncomplete action rather than truncating its URL. Local previews keep their local\nURL; deployed notifications use the host-resolved notification URL. An action too\nlong to fit is omitted whole with a prompt to open the app.\n\n## Trust, recovery and searchable selection\n\nThe account page reads actual destination trust from the host through the separate\n`notification_destinations.read` permission (API 1.1.11). It shows PRIVATE and SECURE\ndestinations separately, with current password-reset routing readiness. Existing profile\nlinks are collapsed as **Compatibility profile links**; their optional profile verification\ndoes not make a notification destination SECURE. No destination addresses, host secrets,\nchallenge codes, notification content or other providers' destinations are returned by\nthis read API. Local Discord labels are added only from this plugin's matching actor and\ndestination revision. Failed refresh clears old trust badges.\n\nUse **Verify DM and configure recovery** for the exact host destination. Complete its\nhost challenge, then enable **Allow recovery messages**. The separate sensitive-content\npermission must be granted, and the administrator must enable the password-reset plugin.\nThe card explains missing proof, opt-in, permission, availability or routing. A verified\ndestination can still have recovery disabled. PUBLIC channels never receive reset secrets.\nHost verification and recovery controls retain authority; this plugin cannot promote trust.\n\nAdministrators can use **Find bot servers**, search by name or ID, select the bot's server\nor enter an ID manually. Discovery uses the entered write-only token or the stored native\ncompatibility token, and returns at most 100 servers per request, with explicit pagination.\nIt uses Discord's [Get Current User Guilds](https://docs.discord.com/developers/resources/user#get-current-user-guilds)\nendpoint; large bot sharding is outside this single-server integration. Selecting a server\ndoes not save until **Validate and save**. This section configures the directory and legacy\ngrouped provider; links open the separately revision-bound DM/channel provider settings in\nAdministration → Notifications. Changing those server settings retires previous destinations\nand requires explicit reconfiguration and new host proof.\n\nChannel allowlists, allowed user channels, members and destination/account cards support\nname/ID search. Member search covers loaded pages; **Load more server users** expands the\ndirectory. Bulk matching channel selection preserves hidden choices until an explicit save.\nUser channels remain administrator-allowed PUBLIC targets. Each existing destination keeps\nits own target; selecting a default channel only affects future enrollment.\n\nVersion 0.1.1 is a manual update requiring API 1.1.11 and permission review. Earlier packages\nand signing history remain immutable. Install/update the host before updating the bot.\n\n## Activity identity adapter (0.1.2 preview)\n\nThe separate Game Night Activity requires the API 1.1.12 host and this updated\nadapter. Existing notification links and destinations keep their behavior. The\nActivity does not inherit their notification or recovery authority.\n\nGrant `integrations.identity_provider` explicitly and configure **Discord Activity\nsign-in** on the administrator page with the bot's application ID and OAuth2\nclient secret. The bot token and OAuth client secret are different credentials;\nboth remain in write-only private plugin storage. The configured bot must belong\nto that application. A saved client secret is never returned to the UI.\n\nThe adapter exchanges the SDK authorization code, reads the OAuth user's verified\nidentity, and checks their membership in the same Discord Activity instance and\nconfigured guild. Revalidation repeats the membership check. A claimed user or\nroom supplied by the browser cannot replace this proof. Verified avatar URLs\ninclude Discord's default-avatar fallback; the host retrieves raster images\nthrough its bounded image transport.\n\nConfigure root and `/api` Activity URL mappings as described in the\n[Game Night README](../discord-social-activity/README.md). Each operator currently\nuses their own application. This preview does not create a persistent Gateway\nconnection or change the existing bot notification delivery implementation.\n\nOperators can explicitly allow **Activities in DMs and group DMs** in Activity\nsign-in settings (default off). The verified Activity location must be Discord's\nprivate-channel kind, with a valid channel and exact connected member. Guild\nrooms remain restricted to the configured server. Saving this policy can retain\nthe existing secret by leaving its field blank for the same application ID.\nPrivate Activity participation is separate from notification DM enrollment.\n\n## Rich batches and editable story messages (host Plugin API 1.1.14)\n\nThe per-account DM and server-channel providers declare presentation capabilities and an edit\naction (`edit-account`, `edit-channel`). `sdk/discord_embeds.py` renders host-approved facts,\nimages, links and action links as embeds with link buttons (the live story page first, at most 5),\na digest of up to 8 items as one message (one embed per item, \"And N more\" plus the story link\nbeyond that) and keeps every message inside Discord's limits (10 embeds, 6,000 characters in\ntotal, 256/4,096/1,024 for title/description/field value, 25 fields). Truncation is\ndeterministic; mentions never notify; only http(s) links survive.\n\n* **Message references.** A created message is returned to the host as an opaque\n  `channel_id:message_id` reference. For an edit the provider re-checks the destination\n  revision, owner, server revision and (for channels) the administrator allowlist exactly as\n  for a send, then requires the reference's channel to be this destination's channel (for a DM,\n  the channel opened for the currently linked account) before `PATCH`ing it. A foreign\n  reference, another bot's message (HTTP 403) or a deleted one (404) is reported as `gone`; the\n  host then sends a follow-up, threaded with `message_reference` when the original still exists.\n* **Isolation and revocation.** Each destination uses the bot token of its own installation\n  server record; a retired, re-routed, re-linked or stale-revision destination makes no Discord\n  call at all, so revoked or unlinked destinations receive no later updates.\n* **Retries.** The host's idempotency key becomes the Discord `nonce` (with `enforce_nonce`), so a\n  crash after Discord accepted a message cannot post it twice. 429 and 5xx/network failures are\n  retryable and create nothing; a 403 on create falls back once to plain text with previews\n  suppressed (missing Embed Links), as before. Other failures are permanent and per delivery.\n* **Privacy.** Channels stay PUBLIC and DMs PRIVATE. The provider renders only the fields the\n  host supplied for the destination's projection; facts, HTML and identifiers the host did not\n  send for a PUBLIC projection cannot appear. Tests/verification/recovery keep the previous\n  minimal path. The legacy grouped `.dm` provider is unchanged.\n\nRelease order: host (Plugin API 1.1.14) first, then this package.\n\n\nRequires Plugin API v1.1.17 for declared page activation. The native bundle loads\nwhen a contributed page is opened, rather than during unrelated library navigation.\nSettings initially read saved configuration. Use **Refresh** to fetch live Discord\nidentity and health; unchecked remote health is shown explicitly.\n",
+      "release_notes": "Account DM and server channel messages render as embeds with facts, images and link buttons, digest several items in one message, edit the earlier message for story updates and send threaded follow-ups when it is gone; requires host Plugin API 1.1.14.",
+      "sha256": "ec8ebbb35de135c852285b21773510fb868b9ea4a6f58598195f3973514ef7dc",
+      "signing": {
+        "key_id": "unnamed-tracking-official-2026-10-07-v2",
+        "sha256": "ec8ebbb35de135c852285b21773510fb868b9ea4a6f58598195f3973514ef7dc",
+        "signature": "v2:p9n6fhr6tjKKBOuvRHeYhlW3PIM2K2eoQDQOhQUW9co1r37p7579KaG/WzIUZmjkXbnneMi1MZnMwZI7knH6CQ=="
+      },
+      "tags": [
+        "discord",
+        "notifications"
+      ],
+      "version": "0.5.2"
     }
   ],
   "version": 1

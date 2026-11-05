@@ -1632,6 +1632,142 @@
         "official"
       ],
       "version": "0.8.0"
+    },
+    {
+      "automatic_update": true,
+      "build": {
+        "builder": "tools/build_packages.py",
+        "contract_revision": "c50e6d0cc08e4649371def34bbef80f5e226e324",
+        "legacy": false,
+        "source_commit": "4ff61cb4c92a8546f93f4b8fa6df406785a3db2c",
+        "source_committed_at": "2026-11-05T20:56:01+08:00",
+        "source_digest": "921a625ca294f05c2b8f6c3932d62fefd7c9f463266b2de0f7d83a30bef5b120",
+        "source_path": "official/metadata-hltb",
+        "version_bump": "patch"
+      },
+      "icon": {
+        "path": "icon.svg",
+        "sha256": "c555650ba0ffb34d908b7f307695262c192848e794628d4943150b4f72e39a34"
+      },
+      "lifecycle": "published",
+      "lifecycle_stages": [
+        "source",
+        "validated",
+        "built",
+        "catalogued",
+        "published",
+        "downloadable"
+      ],
+      "manifest": {
+        "api_contract_version": "1.1.13",
+        "application_version_range": ">=0.0.1",
+        "capabilities": [
+          {
+            "name": "metadata_providers.register",
+            "version": 1
+          },
+          {
+            "name": "metadata_providers.metadata",
+            "version": 1
+          },
+          {
+            "name": "metadata_providers.health",
+            "version": 1
+          },
+          {
+            "name": "network.outbound",
+            "version": 1
+          },
+          {
+            "name": "plugin.storage",
+            "version": 1
+          }
+        ],
+        "dependencies": [],
+        "description": "Separate provider capabilities for progressive metadata and selected media enrichment.",
+        "entrypoint": "plugin:main",
+        "integrity": {
+          "key_id": "unnamed-tracking-official-2026-10-07-v2",
+          "sha256": "4fcf0fecb08d8c4279752b2f09240c2e093de0e2c132a636a2a917cbc8dbdad9",
+          "signature": "v2:aLDQKrXdExa7UMqXaB4MvPJjdHxJBADQNwxr/x72JfPlxprFLPAgD6KAv5u2QLpxf77XEL/BpZd08OmGw8tGAw=="
+        },
+        "manifest_version": 1,
+        "name": "HowLongToBeat Metadata Provider",
+        "permissions": [
+          {
+            "capability": {
+              "name": "metadata_providers.register",
+              "version": 1
+            },
+            "rationale": "Provide declared metadata operations with bounded API requests and plugin-owned configuration or pacing."
+          },
+          {
+            "capability": {
+              "name": "metadata_providers.metadata",
+              "version": 1
+            },
+            "rationale": "Provide declared metadata operations with bounded API requests and plugin-owned configuration or pacing."
+          },
+          {
+            "capability": {
+              "name": "metadata_providers.health",
+              "version": 1
+            },
+            "rationale": "Provide declared metadata operations with bounded API requests and plugin-owned configuration or pacing."
+          },
+          {
+            "capability": {
+              "name": "network.outbound",
+              "version": 1
+            },
+            "rationale": "Provide declared metadata operations with bounded API requests and plugin-owned configuration or pacing."
+          },
+          {
+            "capability": {
+              "name": "plugin.storage",
+              "version": 1
+            },
+            "rationale": "Provide declared metadata operations with bounded API requests and plugin-owned configuration or pacing."
+          }
+        ],
+        "plugin_id": "official.metadata-hltb",
+        "sdk_version_range": "^1.1.1",
+        "storage": {
+          "quota_mb": 1
+        },
+        "ui": {
+          "actions": [
+            "metadata",
+            "health"
+          ],
+          "menus": [],
+          "pages": [],
+          "settings": []
+        },
+        "version": "0.8.1"
+      },
+      "package": {
+        "filename": "official.metadata-hltb-0.8.1.utp",
+        "format": "utp-v1",
+        "size_bytes": 9913
+      },
+      "package_sha256": "440fc2ec33a5ebeaff87a0a1ab3fad6b1af57c50a07d4fc763ec4a9b8ec0b3b5",
+      "plugin_id": "official.metadata-hltb",
+      "publisher": "Unnamed Tracking Official",
+      "readme": "# HowLongToBeat Metadata Provider\n\nThe updated source requires public Plugin API **1.1.13** and the host completion-estimates\nupdate in [host PR #136](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/pull/136).\nIt uses no account or API key. Install the corresponding published `.utp` through\nPlugin Manager and grant its declared metadata, network and storage permissions.\n\nThe provider initializes a short-lived public search token, then searches the\nsite's current endpoint with browser headers. A search 403 renews the token and\nretries once; a second rejection stops. Tokens are not persisted or logged. The\nSDK returns 403 directly to the provider instead of multiplying that renewal with\ngeneric background retries. Other failures retain bounded SDK pacing/retry policy.\n\nMetadata returns whichever of Main story, Main + extras, Completionist and All\nplay styles are available, normalized to one-decimal hours. Missing or invalid\nfigures are omitted, including when Main story is absent. Existing HLTB identity\nwins; without one, only a unique exact normalized title is accepted. Community\nestimates never write personal playtime. The host applies manual field protection,\naccount/provider choices and per-category native IGDB fallback independently.\n\nBuild development packages with `python tools/build_packages.py`. Unsigned previews require explicit installation consent; the existing release workflow produces signed publication packages.\n\nRun `python -m pytest tests/test_hltb.py tests/test_metadata_providers.py -q`.\nFixtures cover token renewal bounds, partial/invalid figures, selected identity,\nambiguity and the exported wire schema. A direct public token/search check on\n15 October 2026 returned five Portal results; this does not establish installed\npackage success. Package/runtime integration validation is tracked in the PR.\n\n## Failure behaviour and session handling\n\nNo cookie or homepage-visit step is needed: the current flow is the public\n`/api/search/site/init` token followed by `/api/search/site`, and the plugin\nneither sends nor stores cookies, so no host cookie/session capability is\nrequired. Failures are returned to the host, never swallowed: a retired or failing\nendpoint (404/410/5xx) is `unavailable`, an unusable init token or changed search\nschema is `invalid_response`, and `health` reports the same classification. Only a\nsearch 403 renews the token (once). Interactive requests never retry; background\nrequests use the SDK's bounded retry budget. `tests/test_hltb.py` covers each case.\n",
+      "release_notes": "Initial additive Plugin API v1.1.1 provider capabilities.",
+      "sha256": "4fcf0fecb08d8c4279752b2f09240c2e093de0e2c132a636a2a917cbc8dbdad9",
+      "signing": {
+        "key_id": "unnamed-tracking-official-2026-10-07-v2",
+        "sha256": "4fcf0fecb08d8c4279752b2f09240c2e093de0e2c132a636a2a917cbc8dbdad9",
+        "signature": "v2:aLDQKrXdExa7UMqXaB4MvPJjdHxJBADQNwxr/x72JfPlxprFLPAgD6KAv5u2QLpxf77XEL/BpZd08OmGw8tGAw=="
+      },
+      "tags": [
+        "metadata",
+        "hltb",
+        "official"
+      ],
+      "version": "0.8.1"
     }
   ],
   "version": 1

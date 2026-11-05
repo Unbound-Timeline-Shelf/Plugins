@@ -1088,6 +1088,105 @@
         "offline"
       ],
       "version": "0.0.13"
+    },
+    {
+      "automatic_update": true,
+      "build": {
+        "builder": "tools/build_packages.py",
+        "contract_revision": "c50e6d0cc08e4649371def34bbef80f5e226e324",
+        "legacy": false,
+        "source_commit": "4ff61cb4c92a8546f93f4b8fa6df406785a3db2c",
+        "source_committed_at": "2026-11-05T20:56:01+08:00",
+        "source_digest": "fe8ffd95e32e7472df2baa6c8e713f70cedc167297fe89f5de926c6b795a9665",
+        "source_path": "official/pwa",
+        "version_bump": "patch"
+      },
+      "icon": {
+        "path": "pwa/pwa-icon.svg",
+        "sha256": "33d30871e87f333c9ccef6618c6783424481f354f6b6c09ef8dec9c0d209963a"
+      },
+      "lifecycle": "published",
+      "lifecycle_stages": [
+        "source",
+        "validated",
+        "built",
+        "catalogued",
+        "published",
+        "downloadable"
+      ],
+      "manifest": {
+        "api_contract_version": "1.1.0",
+        "application_version_range": ">=0.0.1",
+        "automatic_update": true,
+        "capabilities": [
+          {
+            "name": "frontend.pwa",
+            "version": 1
+          }
+        ],
+        "dependencies": [],
+        "description": "Install the complete Unnamed Tracking web application with safe offline reconnect guidance.",
+        "entrypoint": "plugin:main",
+        "integrity": {
+          "key_id": "unnamed-tracking-official-2026-10-07-v2",
+          "sha256": "182e42478170be44b34390c2cb88a14505f2ed487397f9a911cd9ed7aa1b614c",
+          "signature": "v2:U9xB7b1Ox2YLBPsG02z9MFb9Hrjc7bNjmnJUB8+d1RBli8KlxDZLmwIDwWuFbTiq+DlcTaOb50fFcSGfMEzzDA=="
+        },
+        "manifest_version": 1,
+        "name": "Unnamed Tracking PWA",
+        "permissions": [
+          {
+            "capability": {
+              "name": "frontend.pwa",
+              "version": 1
+            },
+            "rationale": "Publish public install metadata/icons and enable the host-owned root service worker. No private API responses are cached."
+          }
+        ],
+        "plugin_id": "official.pwa",
+        "pwa": {
+          "background_color": "#0f1117",
+          "icons": [
+            "pwa/icon-192.png",
+            "pwa/icon-512.png"
+          ],
+          "manifest": "pwa/manifest.webmanifest",
+          "name": "Unnamed Tracking",
+          "short_name": "Tracking",
+          "theme_color": "#0f1117"
+        },
+        "sdk_version_range": "^1.1.0",
+        "ui": {
+          "actions": [],
+          "menus": [],
+          "pages": [],
+          "settings": []
+        },
+        "version": "0.0.14"
+      },
+      "package": {
+        "filename": "official.pwa-0.0.14.utp",
+        "format": "utp-v1",
+        "size_bytes": 14126
+      },
+      "package_sha256": "c5017643f5ce84eca920f16d5e5941bd997a001ffebc330a907e7cf785279fc0",
+      "plugin_id": "official.pwa",
+      "publisher": "Unnamed Tracking Official",
+      "readme": "# Unnamed Tracking PWA\n\nThe maintained official PWA integrates the mobile repository's PWA assets with\nthe complete Unnamed Tracking web application. The plugin release version and\nthe separately reviewed mobile asset version are recorded in\n[`manifest.json`](manifest.json) and [`pwa/version.json`](pwa/version.json).\nStable 1.0.0 requires an explicit human release decision.\n\nInstall its `.utp` through Plugin Manager, review `frontend.pwa`, and enable it.\nThe permission publishes public install metadata and icons and enables the\nhost-owned root worker. It grants no account APIs, native JavaScript or arbitrary\nhost routes. Only one PWA provider may be enabled per server. The host refuses\nconflicting providers rather than selecting one silently.\n\nUse HTTPS (localhost works for development). Android Chrome and Windows\nChrome/Edge offer an install button when available. On iOS Safari, use Share →\nAdd to Home Screen. Installation requires browser support and is separate from\ninstalling the server plugin. Native Android, WebView and Windows/WinUI clients\nremain independent and unchanged.\n\nThe installed app opens the full website and uses its normal login/session/SSO.\nPasswords are never saved by this plugin. Session expiry returns to normal login.\nOffline navigation displays a neutral waiting-for-internet page, never account\ndata. Private API and authentication responses are never cached. A bounded\nexception caches only immutable, digest-addressed public theme assets.\nReconnect restores normal navigation.\n\nThe full application, sign-in/SSO redirects and neutral offline page follow\nLight, Dark or System and the last device palette, including Orange, Green and\ncustom colors. Only cosmetic color roles are cached locally; saved account\npreferences take precedence online. Browser bars follow the current background.\nThe public signed installation manifest never contains personal appearance data.\n\nUpdates replace the host worker generation and remove only owned old caches.\nThe offline page has no time expiry. Disable, permission revocation or uninstall\nwithdraws the manifest/icons and retires the worker when the browser next reaches\nthe server. Offline devices cannot learn about a server-side removal immediately.\nAn installed shortcut remains an ordinary website shortcut, with plugin settings\nguidance. Reinstallation gets a new installation/cache identity.\n\nAssets are synchronized from [Mobile-Apps/pwa](https://github.com/Unbound-Timeline-Shelf/Mobile-Apps/tree/main/pwa) using\n`tools/sync_pwa.py --mobile-root PATH --host-root PATH`; `--check` validates exact\nprovenance and a plugin release that does not precede its mobile asset version.\nThe host never executes a worker from an\nuntrusted package: reviewed worker/offline infrastructure is shipped by the host.\nMetadata colors are typed for future theme support; no mobile UI redesign is\nincluded.\n\nDevelopment previews may be unsigned and require explicit untrusted-package\nconsent. They do not receive the verified Official badge. Official publication\nrequires a separately registered official public key and protected signing secret.\nSee [signing configuration](../../docs/official-signing.md).\n",
+      "release_notes": "Update the canonical mobile PWA asset provenance and installation guidance for the repository move.",
+      "sha256": "182e42478170be44b34390c2cb88a14505f2ed487397f9a911cd9ed7aa1b614c",
+      "signing": {
+        "key_id": "unnamed-tracking-official-2026-10-07-v2",
+        "sha256": "182e42478170be44b34390c2cb88a14505f2ed487397f9a911cd9ed7aa1b614c",
+        "signature": "v2:U9xB7b1Ox2YLBPsG02z9MFb9Hrjc7bNjmnJUB8+d1RBli8KlxDZLmwIDwWuFbTiq+DlcTaOb50fFcSGfMEzzDA=="
+      },
+      "tags": [
+        "pwa",
+        "official",
+        "installable",
+        "offline"
+      ],
+      "version": "0.0.14"
     }
   ],
   "version": 1

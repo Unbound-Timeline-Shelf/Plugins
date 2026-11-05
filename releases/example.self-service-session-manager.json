@@ -4571,6 +4571,287 @@
         "administration"
       ],
       "version": "2.12.0"
+    },
+    {
+      "automatic_update": true,
+      "build": {
+        "builder": "tools/build_packages.py",
+        "contract_revision": "c50e6d0cc08e4649371def34bbef80f5e226e324",
+        "legacy": false,
+        "source_commit": "4ff61cb4c92a8546f93f4b8fa6df406785a3db2c",
+        "source_committed_at": "2026-11-05T20:56:01+08:00",
+        "source_digest": "2bb1beaf2eb7c98f16233909655967422aaf07c5c09fa7c9a395e5079eecc1c7",
+        "source_path": "official/extended-session-manager",
+        "version_bump": "patch"
+      },
+      "icon": {
+        "path": "icon.svg",
+        "sha256": "eeeaacd7730ec13c7058af0780ed0d6e3780f260fd066c2608ccf6f0cbb777a0"
+      },
+      "lifecycle": "published",
+      "lifecycle_stages": [
+        "source",
+        "validated",
+        "built",
+        "catalogued",
+        "published",
+        "downloadable"
+      ],
+      "manifest": {
+        "api_contract_version": "1.1.17",
+        "application_version_range": ">=1.0.0",
+        "backend_routes": [
+          {
+            "authorization": "authenticated",
+            "handler": "plugin:list_sessions_route",
+            "id": "list-sessions-api",
+            "methods": [
+              "GET"
+            ],
+            "path": "sessions",
+            "scope": "plugin"
+          },
+          {
+            "authorization": "authenticated",
+            "handler": "plugin:revoke_session_route",
+            "id": "revoke-session-api",
+            "methods": [
+              "DELETE"
+            ],
+            "path": "sessions/{session_id}",
+            "scope": "plugin"
+          },
+          {
+            "authorization": "admin",
+            "handler": "plugin:list_admin_sessions_route",
+            "id": "list-admin-sessions-api",
+            "methods": [
+              "GET"
+            ],
+            "path": "admin/sessions",
+            "scope": "plugin"
+          },
+          {
+            "authorization": "admin",
+            "handler": "plugin:revoke_admin_session_route",
+            "id": "revoke-admin-session-api",
+            "methods": [
+              "DELETE"
+            ],
+            "path": "admin/sessions/{session_id}",
+            "scope": "plugin"
+          },
+          {
+            "authorization": "admin",
+            "handler": "plugin:revoke_all_admin_sessions_route",
+            "id": "revoke-all-admin-sessions-api",
+            "methods": [
+              "DELETE"
+            ],
+            "path": "admin/sessions",
+            "scope": "plugin"
+          },
+          {
+            "authorization": "authenticated",
+            "handler": "plugin:revoke_all_sessions_route",
+            "id": "revoke-all-own-api",
+            "methods": [
+              "DELETE"
+            ],
+            "path": "sessions",
+            "scope": "plugin"
+          },
+          {
+            "authorization": "admin",
+            "handler": "plugin:revoke_user_sessions_route",
+            "id": "revoke-user-api",
+            "methods": [
+              "DELETE"
+            ],
+            "path": "admin/users/{user_id}/sessions",
+            "scope": "plugin"
+          }
+        ],
+        "capabilities": [
+          {
+            "name": "sessions.read",
+            "version": 1
+          },
+          {
+            "name": "sessions.revoke",
+            "version": 1
+          },
+          {
+            "name": "sessions.admin.read",
+            "version": 1
+          },
+          {
+            "name": "sessions.admin.revoke",
+            "version": 1
+          },
+          {
+            "name": "backend.routes.plugin",
+            "version": 1
+          },
+          {
+            "name": "frontend.native",
+            "version": 1
+          },
+          {
+            "name": "sessions.geoip.read",
+            "version": 1
+          },
+          {
+            "name": "sessions.geoip.configure",
+            "version": 1
+          },
+          {
+            "name": "frontend.page.replace.sessions",
+            "version": 1
+          },
+          {
+            "name": "frontend.page.replace.admin-sessions",
+            "version": 1
+          }
+        ],
+        "dependencies": [],
+        "description": "Enhance the built-in browser session pages with GeoIP, network and anomaly context, a map, filters and confirmed revocation.",
+        "entrypoint": "plugin:main",
+        "frontend": {
+          "entry": "frontend/index.html"
+        },
+        "integrity": {
+          "key_id": "unnamed-tracking-official-2026-10-07-v2",
+          "sha256": "df600d7f53a89cff6b7b0a3e96b3f7e4a19ef647447581a98f917bcf5020a6a0",
+          "signature": "v2:rfrJoAoC7hpvP9QMDcG0Ud2S1S1+UDJbhV/G6b5Lz98lT2FCvD0nCzz3eXi0Oz1gE+hCv93HzkjxvP3MMkvCDQ=="
+        },
+        "manifest_version": 1,
+        "name": "Extended Session Manager",
+        "native_frontend": {
+          "activation": "page",
+          "entry": "native/index.js",
+          "styles": [
+            "native/style.css"
+          ]
+        },
+        "permissions": [
+          {
+            "capability": {
+              "name": "sessions.read",
+              "version": 1
+            },
+            "rationale": "Read the signed-in user's sensitive IP address, user agent, approximate location, network/ASN, and session timestamps. This read grant does not authorize revocation."
+          },
+          {
+            "capability": {
+              "name": "sessions.revoke",
+              "version": 1
+            },
+            "rationale": "DESTRUCTIVE, HIGH RISK: Revoke a browser session owned by the signed-in user after host confirmation. Revoking the current session signs the affected user out immediately; bulk operations cannot be undone."
+          },
+          {
+            "capability": {
+              "name": "sessions.admin.read",
+              "version": 1
+            },
+            "rationale": "HIGH RISK: allow a host-authenticated administrator to inspect sensitive device, IP, location, network, and anomaly metadata for all users inside native Settings."
+          },
+          {
+            "capability": {
+              "name": "sessions.admin.revoke",
+              "version": 1
+            },
+            "rationale": "DESTRUCTIVE, HIGH RISK: Allow an administrator to revoke another user's browser session after host confirmation. Revoking the current session signs the affected user out immediately; bulk operations cannot be undone."
+          },
+          {
+            "capability": {
+              "name": "backend.routes.plugin",
+              "version": 1
+            },
+            "rationale": "Serve user and administrator session operations only below this plugin's authenticated route namespace."
+          },
+          {
+            "capability": {
+              "name": "frontend.native",
+              "version": 1
+            },
+            "rationale": "CRITICAL: execute the official Vue session UI in the host to integrate Settings and the session map. Only install code you trust."
+          },
+          {
+            "capability": {
+              "name": "sessions.geoip.read",
+              "version": 1
+            },
+            "rationale": "Allow administrators to inspect availability of optional City, Country and Network/ASN databases."
+          },
+          {
+            "capability": {
+              "name": "sessions.geoip.configure",
+              "version": 1
+            },
+            "rationale": "DESTRUCTIVE, HIGH RISK: allow administrators to upload and replace host GeoIP databases after explicit confirmation."
+          },
+          {
+            "capability": {
+              "name": "frontend.page.replace.sessions",
+              "version": 1
+            },
+            "rationale": "HIGH RISK: replace only the built-in account Sessions page with GeoIP, network, anomaly and map details. Declining this grant keeps the basic host page."
+          },
+          {
+            "capability": {
+              "name": "frontend.page.replace.admin-sessions",
+              "version": 1
+            },
+            "rationale": "HIGH RISK: replace only the built-in administrator Session Manager page with extended GeoIP, network, anomaly, map and database controls. The host still requires administrator access; declining this grant keeps the basic host page."
+          }
+        ],
+        "plugin_id": "example.self-service-session-manager",
+        "sdk_version_range": "^1.1.17",
+        "storage": {
+          "quota_mb": 1
+        },
+        "ui": {
+          "actions": [
+            "list-sessions",
+            "revoke-session",
+            "list-admin-sessions",
+            "revoke-admin-session",
+            "revoke-all-admin-sessions",
+            "revoke-all-sessions",
+            "revoke-user-sessions",
+            "geoip-status"
+          ],
+          "menus": [],
+          "pages": [
+            "sessions",
+            "admin-sessions"
+          ],
+          "settings": []
+        },
+        "version": "2.12.1"
+      },
+      "package": {
+        "filename": "example.self-service-session-manager-2.12.1.utp",
+        "format": "utp-v1",
+        "size_bytes": 27027
+      },
+      "package_sha256": "5bd7efdd28b96fd4fb630ec830b845d89b7c41810778339273720cd273649696",
+      "plugin_id": "example.self-service-session-manager",
+      "publisher": "Unnamed Tracking Official",
+      "readme": "# Extended Session Manager\n\nThis is maintained official functionality in `official/extended-session-manager`.\nThe stable ID `example.self-service-session-manager` is preserved for updates;\nnew releases use the official signer through an exact-ID trust grant. Historical\ndemo packages retain their original signatures. Installing a newly signed release\nrequires the successor public key and exact-ID policy described in\n[host issue #7](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/issues/7).\n\nThe 2.x series ports application [PR #248](https://github.com/Rosefall-a/unnamed_tracking_app/pull/248), inspected at head `5bf43f22bd4991999cd278c5b201817aae439e85`. Current branch previews use Plugin API 1.1. The stable ID remains `example.self-service-session-manager`. This replaces the minimized metadata/Refresh example.\n\n## Experience and source parity\n\nThe primary experience is **Account → Sessions** (`/settings?area=account&section=sessions`) and administrator-only **Administration → Session Manager** (`/settings?area=administration&section=admin-sessions`). The host now supplies basic pages showing state, IP, browser details and timestamps. This plugin replaces only those two sections with its extended GeoIP, network, anomaly and map interface, using independently approved page-scoped permissions. It registers no duplicate settings entries and retains its stable plugin ID. Controls use native palette and shape tokens; no host code selects this plugin by ID.\n\nDisabling the plugin or declining either replacement permission leaves that built-in page available. The **Advanced sessions** switch at the top of either page selects the extended or built-in view; turning it off opens the basic page with `basic=1`. Native and sandbox plugin-owned page URLs remain available. The companion host change adding `sessions` and `admin-sessions` replacement targets is merged: earlier hosts do not understand the new capabilities. Existing installations must review and grant the new replacement permissions during update.\n\nNative cards, administration rows and selected map markers summarize browser and operating system. The full user agent is available in an expandable detail so diagnostic information remains accessible without filling every row. This formatting stays inside the plugin; it does not import host frontend code.\n\nThe 2.3.1 preview bounds native controls to the host panel. User selectors use\nthe shared field style, long values wrap or stay within their control, and\nexpanded GeoIP uploads fit narrow screens. The wide administration table keeps\nits own horizontal scroller; it does not widen the surrounding settings page.\n\n| PR #248 behavior | Current native plugin |\n| --- | --- |\n| Current session; active/expired/revoked records | Reproduced with backend state filtering |\n| IP, user agent, country/region/city, timestamps | Reproduced, including creation, activity, expiry, revocation |\n| Network type/label, ASN/network number, organization | Reproduced with the source credential-free serializer |\n| Session search and admin user filters | Reproduced; country/anomaly filters also expose source metadata |\n| GIS map, pan/zoom, clustered selectable pins, admin user colors | Reproduced for loaded pages when City GeoIP is usable |\n| Own one/all; admin one/user/server revocation | Reproduced with separate destructive grants and explicit confirmation |\n| Admin compact table, City/Country/Network MMDB status/uploads | Reproduced with scoped grants, confirmation, and existing host validation |\n| Geographic anomaly and provider notifications | Source session metadata and core notification coordinator reused |\n\nThe current account session has no individual revoke button, matching the source. Revoke all includes it and returns the browser to sign-in. Bulk actions affect all unrevoked records in scope, including expired ones, regardless of displayed filters, matching the source SQL. API keys are separate and are not revoked.\n\nAnomalies show the reason and previous location. Shared password/OIDC session creation queues `session_anomaly` notifications through the existing core coordinator, deduplication, provider registry, delivery state, and preferences. This plugin does not resend or invent alerts; notification providers/preferences stay in their normal host Settings surfaces.\n\nThe map requests visible OpenStreetMap tiles with browser caching, visible attribution, and an origin-only referrer following the [tile usage policy](https://operations.osmfoundation.org/policies/tiles/). OSM receives the viewing browser's IP, application origin, and tile coordinates. Session identifiers, usernames, IP metadata, and user agents are never sent in tile requests. Locations are approximate; private/local addresses are not plotted.\n\n## Permission review: intentionally high risk\n\n| Permission | Why requested | Risk / destructive behavior |\n| --- | --- | --- |\n| `sessions.read` | Rich records owned by the caller | Sensitive device, IP, approximate location, and network metadata; never tokens/hashes |\n| `sessions.revoke` | Own single/bulk revocation | **Destructive:** signs out browsers, including the current browser during bulk revocation |\n| `sessions.admin.read` | Cross-user admin records | **High:** sensitive metadata across users; host admin role independently required |\n| `sessions.admin.revoke` | Admin single/user/server revocation | **Destructive, High:** can sign out every browser; admin required |\n| `sessions.geoip.read` | Database availability | Admin-only status without filesystem paths |\n| `sessions.geoip.configure` | Replace optional MMDB databases | **Destructive, High:** changes shared enrichment data; admin and confirmation required |\n| `frontend.page.replace.sessions` | Enhance the built-in account Sessions section | **High:** replaces only this page; independent of session read/revoke grants |\n| `frontend.page.replace.admin-sessions` | Enhance the built-in administrator Session Manager section | **High:** replaces only this page; the host still requires administrator access |\n| `frontend.native` | Native cards, table, map, file controls | **Critical:** reviewed code executes in the host browser realm, with DOM/browser authority; scoped backend grants remain enforced |\n| `backend.routes.plugin` | Optional namespaced JSON handlers | Host authentication, admin policies, lifecycle, limits, and installation grants |\n\nNo `api.full`, `backend.routes.host`, arbitrary filesystem/network, broad user-read, or notification-send permission is requested. Read and revoke grants are independent. Declining a grant denies its operation; no broader fallback API is used. Without `frontend.native`, the legacy plugin-owned account page supplies a sandboxed own-session fallback with metadata and confirmed revocation. Full map/admin/configuration parity requires the reviewed native grant.\n\n## Backend security and revocation\n\nAll destructive actions declare host-owned confirmation text. Both UI modes ask for confirmation; the backend action endpoint requires strict boolean `confirmed: true` before dispatch. The plugin and gateway also require explicit confirmation. JSON route clients must expressly confirm. Confirmation prevents accidents; it does not replace authorization.\n\nThe host authenticates the caller, checks live installation grants and health, and creates current-session context from the authenticated cookie. Caller-supplied `_plugin_context` is overwritten. The domain constrains self-service SQL to the caller and independently checks active admin status for cross-user operations. Knowing a foreign UUID cannot change ownership. Malformed UUIDs are rejected. Disabled/unhealthy plugins cannot dispatch actions, routes, or gateway methods. Plugin Python imports only the standard library and public SDK, and receives no cookies, tokens, hashes, ORM objects, or database connections.\n\nRevocation sets `revoked_at`, preserving audit metadata. Subsequent cookie authentication fails immediately. A generic host auth refresh returns remotely revoked browsers to login; current-browser bulk revocation navigates immediately.\n\nOptional routes relative to `/api/plugins/example.self-service-session-manager/`:\n\n| Method/path | Grant | Caller |\n| --- | --- | --- |\n| GET `sessions` | `sessions.read` | Owner |\n| DELETE `sessions/{session_id}` / `sessions` | `sessions.revoke` | Owner |\n| GET `admin/sessions` | `sessions.admin.read` | Administrator |\n| DELETE `admin/sessions/{session_id}` / `admin/users/{user_id}/sessions` / `admin/sessions` | `sessions.admin.revoke` | Administrator |\n\nDELETE bodies require `{ \"confirmed\": true }`. Lists accept `q`, `state`, `country`, `anomaly=true|false`, `limit` (up to 200), `cursor`, and admin-only `user_id`.\n\nMMDB upload uses the generic host capability endpoint `POST /api/plugins/<plugin-id>/capabilities/sessions/geoip?kind=city|country|network&confirmed=true` with multipart `file`. The host validates and atomically replaces the database. Reads are bounded to 256 MiB; proxy limits can be lower. There is no automatic database download, license acquisition, or arbitrary server filesystem access.\n\n## Platform stages 1–4 demonstrated\n\n1. Versioned contracts, risk rationales, installation identity, ownership, separate read/write grants.\n2. Normal package inspection, development trust consent, update permission review, health/lifecycle gating; the entrypoint stays alive under the supervisor.\n3. Native Settings, admin visibility, host Vue integration/cleanup, host action confirmation, sandbox fallback.\n4. Namespaced backend routes with authenticated/admin policies, normalized request envelopes, scoped gateway methods.\n\n## Remaining differences from PR #248\n\n- Lists, map pins, and the admin user selector reflect loaded cursor pages rather than one unbounded response. **Load more** exposes the remainder; search can find users beyond loaded pages.\n- GeoIP configuration does not disclose host filesystem paths.\n- Every single-session destructive action is confirmed; the source account's individual revoke button was immediate.\n- Native integration requires reviewing Critical browser authority plus narrow domain grants. The sandbox fallback lacks map/admin/configuration UI.\n- Historical sessions without metadata cannot be retroactively enriched. New sessions use the shared source metadata/anomaly path.\n- External map tiles, optional MMDB availability, and configured notification delivery remain deployment dependencies, as in the source.\n\nNo source user/admin workflow is omitted from the full native experience.\n\n## Build and verification\n\nRequires a Plugin API/SDK 1.1 host, currently the coordinated `feat/ui-ux-redevelopment` branch. A 1.0 host cannot run this new package; its limited legacy support applies to older packages only. Capability version 1 retains its ownership scopes with additive DTO fields/new operations. Strict destructive confirmation is an intentional security tightening; older clients must send confirmation.\n\n```sh\npytest\nnode --test tests/session_manager_ui.test.mjs\nnode tools/capture_sessions.mjs /path/to/host /path/to/evidence http://127.0.0.1:8000 /path/to/temporary-admin-cookies.json\npython tools/build_packages.py\npython tools/verify_packages.py dist/*.utp\npython tools/validate_packages.py dist/*.utp\n```\n\nPlugin tests exercise permissions, filters, identifier validation, confirmations, routing, packaging, actual UI controller pagination/cancellation/sign-out/errors/cleanup, and map math. Host HTTP tests execute real SQL/grants for cross-user reads/writes, unauthorized revocation, strict confirmation, disabled plugins, malformed IDs, admin checks, pagination, revoked-cookie rejection, GeoIP uploads, and password metadata/anomaly creation. Existing CI checks remain, with Node UI tests added.\n\nThe browser verifier requires an installed, running native package on a disposable local host. It creates its own temporary members, exercises owner and administrator filters/confirmed revocation, verifies foreign-session denial and sign-out without refresh, and captures 320/390/1440/1920-pixel light/dark layouts. It never revokes the administrator's session or unrelated users' sessions; its fixtures are removed afterwards. The optional `SESSION_PACKAGE_SHA256` records the exact tested archive.\n\nLocal packages are **unsigned**, requiring normal untrusted-package consent. Release CI supplies its configured reviewed signing identity. Historical packages and signing identities are preserved.\n\nThe latest authenticated local-host check uses the current unsigned working-tree\npreview at 320, 390, 1440 and 1920 pixels. Owner/admin filters, cancellation,\nselected-user revocation, foreign-session denial and sign-out without a refresh\npass. Its [report](../../wiki/docs/assets/screenshots/session-native-conformance.json)\nidentifies the tested archive and records the actual loaded native UI.\n\n![Authenticated account sessions on a phone](../../wiki/docs/assets/screenshots/session-owner-loaded-390-dark.png)\n\n![Authenticated administrator session filters](../../wiki/docs/assets/screenshots/session-admin-loaded-1440-light.png)\n\n![Native admin component with fixture data](../../wiki/docs/assets/screenshots/session-manager-admin.png)\n\nScreenshot uses the actual native module with disposable fixture data in a local Vue harness, not a deployed authenticated host.\n\n\nRequires Plugin API v1.1.17 for declared page activation. The native bundle loads\nwhen a contributed page is opened, rather than during unrelated library navigation.\n",
+      "release_notes": "Promote Extended Session Manager to maintained official functionality while preserving the existing plugin ID for updates. Use the scoped official signing identity. Enhance the built-in account and administrator session pages through separately approved page replacements, preserving GeoIP location, network and anomaly data, the map, database uploads and confirmed revocation. Summarize browser and operating system, with the full user agent available on demand.",
+      "sha256": "df600d7f53a89cff6b7b0a3e96b3f7e4a19ef647447581a98f917bcf5020a6a0",
+      "signing": {
+        "key_id": "unnamed-tracking-official-2026-10-07-v2",
+        "sha256": "df600d7f53a89cff6b7b0a3e96b3f7e4a19ef647447581a98f917bcf5020a6a0",
+        "signature": "v2:rfrJoAoC7hpvP9QMDcG0Ud2S1S1+UDJbhV/G6b5Lz98lT2FCvD0nCzz3eXi0Oz1gE+hCv93HzkjxvP3MMkvCDQ=="
+      },
+      "tags": [
+        "account",
+        "administration"
+      ],
+      "version": "2.12.1"
     }
   ],
   "version": 1
