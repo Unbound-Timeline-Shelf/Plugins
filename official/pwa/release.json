@@ -9,5 +9,5 @@
   ],
   "icon": "pwa/pwa-icon.svg",
   "automatic_update": true,
-  "release_notes": "Refresh the shared Plugin API 1.1.11 SDK bundle; the existing browser/PWA lifecycle and PRIVATE generic push behavior are unchanged."
+  "release_notes": "Update the canonical mobile PWA asset provenance and installation guidance for the repository move."
 }
