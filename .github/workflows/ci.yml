@@ -18,6 +18,10 @@ on:
         description: "Host ref (defaults to a verified revision; matching branches take precedence)"
         type: string
         required: false
+      atlas_ref:
+        description: "Atlas ref for the live contract job (defaults to the pinned revision in the job env)"
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -33,6 +37,7 @@ jobs:
       lifecycle_reference: ${{ steps.changes.outputs.lifecycle_reference }}
       lifecycle_jellyfin: ${{ steps.changes.outputs.lifecycle_jellyfin }}
       lifecycle_pwa: ${{ steps.changes.outputs.lifecycle_pwa }}
+      atlas_live: ${{ steps.changes.outputs.atlas_live }}
       full_tests: ${{ steps.changes.outputs.full_tests }}
     steps:
       - id: decide
@@ -69,7 +74,7 @@ jobs:
           if [ "$RUN" = true ]; then
             python3 tools/ci_changes.py
           else
-            printf '%s\n' lifecycle=false lifecycle_reference=false lifecycle_jellyfin=false lifecycle_pwa=false full_tests=false >> "$GITHUB_OUTPUT"
+            printf '%s\n' lifecycle=false lifecycle_reference=false lifecycle_jellyfin=false lifecycle_pwa=false atlas_live=false full_tests=false >> "$GITHUB_OUTPUT"
           fi
 
   lifecycle-official:
@@ -268,6 +273,65 @@ jobs:
             ${{ runner.temp }}/pwa-acceptance/*.log
             ${{ runner.temp }}/pwa-acceptance/*.png
             ${{ runner.temp }}/pwa-acceptance/pwa-conformance.json
+          if-no-files-found: warn
+
+  # The official Atlas plugin against a REAL Atlas container with synthetic data (tests/atlas_live). Atlas is a
+  # private repository, so the job needs a read-only token in the ATLAS_CHECKOUT_TOKEN secret; without it the job
+  # FAILS rather than passing without having run anything. Fork pull requests have no secrets and skip the job.
+  # It is a separate check, not part of the `lifecycle` aggregate.
+  atlas-live-contract:
+    needs: gate
+    if: needs.gate.outputs.run == 'true' && needs.gate.outputs.atlas_live == 'true' && github.event.pull_request.head.repo.fork != true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      # Pinned so a plugin PR is not broken by an unrelated Atlas commit; bump it deliberately (or use the
+      # workflow_dispatch atlas_ref input) to test against newer Atlas.
+      ATLAS_REPOSITORY: obsoletelabs/unnamed_tracking_metadata
+      ATLAS_REF: ${{ inputs.atlas_ref || '62c73f36e7de4a0bd6b814a7dd992eacc7a670e1' }}
+    steps:
+      - uses: actions/checkout@v7
+      # Atlas is a private repository, so this lane needs a read-only token. Until the secret exists the
+      # lane is skipped loudly (warning + job summary) instead of failing every pull request; once the
+      # secret is set, any failure below fails the job as normal.
+      - name: Check read access to the Atlas repository
+        id: atlas_access
+        env:
+          ATLAS_TOKEN: ${{ secrets.ATLAS_CHECKOUT_TOKEN }}
+        run: |
+          if [ -z "$ATLAS_TOKEN" ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Secret ATLAS_CHECKOUT_TOKEN (read-only, contents on $ATLAS_REPOSITORY) is not configured, so the live Atlas contract lane was SKIPPED."
+            echo "### Live Atlas contract lane skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "Configure the \`ATLAS_CHECKOUT_TOKEN\` repository secret (read-only contents access to \`$ATLAS_REPOSITORY\`) to enable it." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v7
+        if: steps.atlas_access.outputs.available == 'true'
+        with:
+          repository: ${{ env.ATLAS_REPOSITORY }}
+          ref: ${{ env.ATLAS_REF }}
+          token: ${{ secrets.ATLAS_CHECKOUT_TOKEN }}
+          path: .validation/atlas
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        if: steps.atlas_access.outputs.available == 'true'
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - if: steps.atlas_access.outputs.available == 'true'
+        run: python -m pip install --upgrade pip -r requirements-dev.txt
+      - name: Build Atlas, start it, seed synthetic data and run the plugin against it
+        if: steps.atlas_access.outputs.available == 'true'
+        run: |
+          python tools/check_metadata_atlas_live.py             --atlas-source .validation/atlas --tag atlas-live:ci             --log-dir "${{ runner.temp }}/atlas-live"
+      - uses: actions/upload-artifact@v7
+        if: always() && steps.atlas_access.outputs.available == 'true'
+        with:
+          name: atlas-live-contract-evidence
+          path: ${{ runner.temp }}/atlas-live/*.log
           if-no-files-found: warn
 
   # The single aggregate status. It keeps the original job name, `lifecycle`, so anything that

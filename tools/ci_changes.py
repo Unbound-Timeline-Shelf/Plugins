@@ -13,6 +13,8 @@ DOC_ROOTS = ("wiki", "docs")
 ZERO_SHA = "0" * 40
 JELLYFIN = "official/jellyfin-media-sync"
 PWA = "official/pwa"
+ATLAS = "official/metadata-atlas"
+ATLAS_LIVE_TESTS = "tests/atlas_live/"
 REPOSITORY = Path(__file__).resolve().parents[1]
 TOOL_NAME = re.compile(r"^(?:check|capture)_(?P<rest>.+?)\.[^.]+$")
 
@@ -57,7 +59,7 @@ def classify(files: list[str] | None) -> dict[str, object]:
     if files is None:
         return everything()
     plugins: set[str] = set()
-    shared = tests = False
+    shared = tests = atlas_tests = False
     for raw in files:
         path = raw.strip().replace("\\", "/")
         if not path:
@@ -71,6 +73,7 @@ def classify(files: list[str] | None) -> dict[str, object]:
             plugins.update(owners)
         elif parts[0] == "tests":
             tests = True
+            atlas_tests = atlas_tests or path.startswith(ATLAS_LIVE_TESTS)
         else:
             shared = True
     return {
@@ -80,12 +83,13 @@ def classify(files: list[str] | None) -> dict[str, object]:
         "lifecycle_jellyfin": shared or JELLYFIN in plugins,
         "lifecycle_pwa": shared or PWA in plugins,
         "full_tests": shared or tests or bool(plugins),
+        "atlas_live": shared or atlas_tests or ATLAS in plugins,
     }
 
 
 def everything() -> dict[str, object]:
     return {"plugins": ["*"], "lifecycle": True, "lifecycle_reference": True,
-            "lifecycle_jellyfin": True, "lifecycle_pwa": True, "full_tests": True}
+            "lifecycle_jellyfin": True, "lifecycle_pwa": True, "full_tests": True, "atlas_live": True}
 
 
 def changed_files(event: str, base: str, head: str) -> list[str] | None:

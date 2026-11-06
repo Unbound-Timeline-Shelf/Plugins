@@ -57,6 +57,18 @@ def test_plugin_scoped_tools_select_only_their_plugin(path, owners):
     assert not selection["lifecycle_pwa"] and not selection["lifecycle_reference"]
 
 
+def test_the_live_atlas_lane_runs_for_the_atlas_plugin_its_tests_and_shared_files_only():
+    assert classify(["official/metadata-atlas/plugin.py"])["atlas_live"]
+    assert classify(["tests/atlas_live/test_atlas_live_contract.py"])["atlas_live"]
+    assert classify(["tools/check_metadata_atlas_live.py"])["plugins"] == ["official/metadata-atlas"]
+    assert classify(["tools/check_metadata_atlas_live.py"])["atlas_live"]
+    assert classify(["sdk/metadata_provider.py"])["atlas_live"]  # shared files select everything
+    assert classify(["official/jellyfin-media-sync/sync.py"])["atlas_live"] is False
+    assert classify(["tests/test_hltb.py"])["atlas_live"] is False
+    assert classify(["wiki/docs/testing/atlas-live-contract.md"])["atlas_live"] is False
+    assert everything()["atlas_live"] is True
+
+
 def test_tool_ownership_needs_one_plugin_and_a_check_or_capture_name():
     available = ["official/metadata-hltb", "official/metadata-tmdb", "official/pwa",
                  "examples/ui-api"]
