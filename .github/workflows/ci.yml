@@ -287,11 +287,12 @@ jobs:
     env:
       # Pinned so a plugin PR is not broken by an unrelated Atlas commit; bump it deliberately (or use the
       # workflow_dispatch atlas_ref input) to test against newer Atlas.
-      # Bumped to Atlas programme/a4-achievement-identity (stable ak1 achievement keys, contract C2): the live
-      # test for #78 asserts external_id stability, which an Atlas without keys cannot give. Re-pin to the
+      # Bumped to Atlas programme/a6-resolve-semantics (contract C4: /resolve reason/tier/conflict/redirected_from,
+      # on top of the stable ak1 achievement keys of contract C2): the live tests for #96 and the shared resolve
+      # fixture assert a conflict is reported and not assigned, which an older Atlas cannot do. Re-pin to the
       # merge commit on Atlas main once that change has landed.
       ATLAS_REPOSITORY: obsoletelabs/unnamed_tracking_metadata
-      ATLAS_REF: ${{ inputs.atlas_ref || '1dc27fce77b31fd5569ef61287ab28b62eb8f4ff' }}
+      ATLAS_REF: ${{ inputs.atlas_ref || 'd47173ef901bd40c8e64899057ff80b722b664a1' }}
     steps:
       - uses: actions/checkout@v7
       # Atlas is a private repository, so this lane needs a read-only token. Until the secret exists the
