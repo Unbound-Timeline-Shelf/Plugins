@@ -13,6 +13,7 @@ Conventions
 """
 import json
 import os
+import re
 import socket
 import threading
 import time
@@ -251,10 +252,11 @@ def test_achievements_forward_atlas_fields_and_the_hidden_entry_is_redacted(plug
     first = items[0]
     assert (first["name"], first["tier"], first["points"], first["kind"]) == ("Harbor 0000", "bronze", 5, "progression")
     assert first["global_percent"] == 90.0 and first["hidden"] is False
-    assert first["source_ids"] == {"curator": "src-0"}
+    assert first["source_ids"].pop("atlas.row") and first["source_ids"] == {"curator": "src-0"}
     hidden = [i for i in items if i["hidden"]]
     assert len(hidden) == 1 and hidden[0]["name"] == "Hidden achievement"
-    assert "description" not in hidden[0] and "source_ids" not in hidden[0], "a read token never sees the real text"
+    assert "description" not in hidden[0], "a read token never sees the real text"
+    assert list(hidden[0]["source_ids"]) == ["atlas.row"], "only the bridge: no provider id leaks from a hidden entry"
 
 
 def test_achievement_icons_are_public_media_urls_that_really_serve_the_image(plugin, gateway, atlas_api, seeded):
@@ -287,7 +289,8 @@ def test_achievements_for_a_movie_are_not_requested(plugin, gateway, seeded):
 def test_achievements_can_be_resolved_from_a_linked_steam_identity(plugin, gateway, seeded):
     cand = selected(plugin, title="Starlight Harbor", year=2021, provider_ids={"steam": "5001"})
     first = plugin.metadata({"request": {"resource": "achievements"}, "candidate": cand})
-    assert len(first["metadata"]["achievements"]) == 200 and first["next_cursor"] == "200"
+    # Cut by bytes: the stable key and the atlas.row bridge make an entry larger, so the page ends at or before 200.
+    assert 0 < len(first["metadata"]["achievements"]) <= 200 and first["next_cursor"] == str(len(first["metadata"]["achievements"]))
     assert gateway.paths()[0] == "/resolve"
 
 
@@ -306,31 +309,69 @@ def test_atlas_reports_the_unpaged_total_the_plugin_relies_on(atlas_api, seeded)
     assert first["next_offset"] == 200 and first["hidden_count"] == 1
 
 
-@KNOWN_ISSUE
-def test_KNOWN_ISSUE_atlas_78_achievement_external_ids_survive_an_atlas_edit(plugin, gateway, atlas_api, seeded):
-    """Atlas #78 (defect 1) / plugins #70: the plugin forwards Atlas's achievement ``id`` as the host ``external_id``,
-    and Atlas gives every row a fresh id each time a source's list is replaced, so one refresh makes the host delete and
-    recreate the whole catalogue (and orphan manual progress). Flip when ids are stable across an edit."""
+def atlas_rows(atlas_api, token, cid):
+    """Atlas's own view of a game's achievements: ``[(id, key or None), ...]`` in API order."""
+    status, page = atlas_api.request("GET", f"/games/{cid}/achievements?limit=200", token)
+    assert status == 200, page
+    return [(entry["id"], entry.get("key")) for entry in page["results"]]
+
+
+def atlas_serves_keys(atlas_api, seeded):
+    """True for an Atlas that carries the contract C2 ``key`` (A4 and later); False for an older one."""
+    return all(key for _, key in atlas_rows(atlas_api, seeded.read_token, seeded.ids["starlight"])[:5])
+
+
+def test_atlas_78_achievement_external_ids_survive_an_atlas_edit(plugin, gateway, atlas_api, seeded):
+    """Atlas #78 (defect 1) / plugins #70, contract C2: the plugin forwards Atlas's stable ``ak1`` key as the host
+    ``external_id`` (the row id only against an Atlas that predates keys), so an unchanged re-import or an edit of
+    one source's list leaves every external_id alone and the host keeps its catalogue and manual progress."""
     cid = atlas_api.observe(seeded.admin_token, "steamlike", "CH-1", "Churn Subject", "2020-01-01")
     items = support.achievements(5, prefix="Churn")
     atlas_api.ok("PUT", f"/games/{cid}/achievements", seeded.admin_token, {"items": items})
-    before = {i["name"]: i["external_id"] for i in catalogue(plugin, cid)[0]}
-    atlas_api.ok("PUT", f"/games/{cid}/achievements", seeded.admin_token, {"items": items})  # an unchanged re-import
-    after = {i["name"]: i["external_id"] for i in catalogue(plugin, cid)[0]}
-    assert before.keys() == after.keys() and len(before) == 5
-    assert before == after, "every external_id changed"
-
-
-def test_atlas_78_current_behaviour_the_ids_do_change_but_names_and_order_do_not(plugin, gateway, atlas_api, seeded):
-    """Companion to the KNOWN ISSUE above, on a separate game: what stays stable today is the name and the order."""
-    cid = atlas_api.observe(seeded.admin_token, "steamlike", "CH-2", "Churn Companion", "2020-01-01")
-    items = support.achievements(4, prefix="Stable")
-    atlas_api.ok("PUT", f"/games/{cid}/achievements", seeded.admin_token, {"items": items})
     before, _ = catalogue(plugin, cid)
-    atlas_api.ok("PUT", f"/games/{cid}/achievements", seeded.admin_token, {"items": items})
+    atlas_api.ok("PUT", f"/games/{cid}/achievements", seeded.admin_token, {"items": items})  # an unchanged re-import
     after, _ = catalogue(plugin, cid)
-    assert [i["name"] for i in before] == [i["name"] for i in after]
-    assert {i["external_id"] for i in before}.isdisjoint({i["external_id"] for i in after})
+    ids = lambda rows: {i["name"]: i["external_id"] for i in rows}  # noqa: E731
+    assert ids(before).keys() == ids(after).keys() and len(before) == 5
+    assert ids(before) == ids(after), "every external_id changed"
+    assert [i["source_ids"]["atlas.row"] for i in before] == [i["source_ids"]["atlas.row"] for i in after]
+
+
+def test_atlas_78_the_key_is_the_external_id_and_the_row_id_is_the_bridge(plugin, gateway, atlas_api, seeded):
+    """Compat matrix, both cells against the real Atlas under test: with keys the key is the identity and the row id
+    rides as ``atlas.row``; against an older Atlas the plugin falls back to the row id (today's behaviour)."""
+    cid = atlas_api.observe(seeded.admin_token, "steamlike", "CH-3", "Bridge Subject", "2020-01-01")
+    atlas_api.ok("PUT", f"/games/{cid}/achievements", seeded.admin_token,
+                 {"items": support.achievements(6, prefix="Bridge", hidden=(2,))})
+    rows = atlas_rows(atlas_api, seeded.read_token, cid)
+    items, _ = catalogue(plugin, cid)
+    assert len(items) == len(rows) == 6
+    for (row_id, key), item in zip(rows, items):
+        assert item["source_ids"]["atlas.row"] == row_id
+        if key is None:  # an Atlas that predates keys
+            assert item["external_id"] == row_id
+        else:
+            assert re.fullmatch(r"ak1:[a-z2-7]{26}", key) and item["external_id"] == key != row_id
+    assert len({i["external_id"] for i in items}) == 6
+    assert any(i["hidden"] for i in items), "the hidden entry is forwarded too, with its key and no real text"
+
+
+def test_atlas_78_an_edit_of_one_entry_keeps_the_identity_of_every_other(plugin, gateway, atlas_api, seeded):
+    """Changing one entry's text and dropping another must not move the survivors (in-place reconcile, C2.2)."""
+    cid = atlas_api.observe(seeded.admin_token, "steamlike", "CH-4", "Edit Subject", "2020-01-01")
+    items = support.achievements(5, prefix="Edit")
+    atlas_api.ok("PUT", f"/games/{cid}/achievements", seeded.admin_token, {"items": items})
+    before = {i["name"]: i["external_id"] for i in catalogue(plugin, cid)[0]}
+    edited = [dict(i, description="Changed text") for i in items[:4]]  # entry 4 is dropped, the rest are edited
+    atlas_api.ok("PUT", f"/games/{cid}/achievements", seeded.admin_token, {"items": edited})
+    after_items, _ = catalogue(plugin, cid)
+    after = {i["name"]: i["external_id"] for i in after_items}
+    assert set(after) == set(before) - {"Edit 0004"}
+    if atlas_serves_keys(atlas_api, seeded):
+        assert all(after[name] == before[name] for name in after), "a survivor's external_id moved"
+        assert all(i["description"] == "Changed text" for i in after_items)
+    else:
+        assert all(after[name] != before[name] for name in after), "an older Atlas churns row ids"
 
 
 # --- artwork -------------------------------------------------------------------------------------------------
@@ -484,17 +525,21 @@ def test_losing_atlas_between_achievement_pages_fails_instead_of_truncating(plug
     """The host must see a failure for page 2, never a silently shorter catalogue that it would then trust."""
     gid = seeded.ids["starlight"]
     first = plugin.metadata({"request": {"resource": "achievements"}, "candidate": selected(plugin, gid)})
-    assert first["next_cursor"] == "200"
+    # The page is cut by bytes (the stable key and the atlas.row bridge add to each entry), so it ends at or before 200.
+    cursor = first["next_cursor"]
+    assert cursor == str(len(first["metadata"]["achievements"])) and 0 < int(cursor) <= 200
+    expected = plugin.metadata({"request": {"resource": "achievements", "cursor": cursor}, "candidate": selected(plugin, gid)})
+    assert expected["metadata"]["achievements"]
     gateway.timeout = 1.5
     support.pause(live_env["container"])
     try:
-        second = plugin.metadata({"request": {"resource": "achievements", "cursor": "200"},
+        second = plugin.metadata({"request": {"resource": "achievements", "cursor": cursor},
                                   "candidate": selected(plugin, gid)})
     finally:
         support.unpause(live_env["container"])
     assert second == {"failure": {"code": "unavailable"}}
-    resumed = plugin.metadata({"request": {"resource": "achievements", "cursor": "200"}, "candidate": selected(plugin, gid)})
-    assert len(resumed["metadata"]["achievements"]) == 200, "the same cursor works again once Atlas is back"
+    resumed = plugin.metadata({"request": {"resource": "achievements", "cursor": cursor}, "candidate": selected(plugin, gid)})
+    assert resumed == expected, "the same cursor works again once Atlas is back, with the same page"
 
 
 def test_nothing_secret_is_left_in_results_or_urls(plugin, gateway, seeded):
