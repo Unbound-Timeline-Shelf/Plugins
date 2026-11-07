@@ -134,7 +134,8 @@
               "enum": [
                 "bronze",
                 "silver",
-                "gold"
+                "gold",
+                "platinum"
               ],
               "type": "string"
             },
@@ -216,6 +217,17 @@
           },
           "title": "Source Ids",
           "type": "object"
+        },
+        "aliases": {
+          "default": [],
+          "items": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Aliases",
+          "type": "array"
         }
       },
       "required": [
@@ -505,6 +517,45 @@
         "episode_number"
       ],
       "title": "MetadataEpisode",
+      "type": "object"
+    },
+    "MetadataIdentity": {
+      "additionalProperties": false,
+      "description": "How the provider matched the lookup to its record (Plugin API 1.1.20, C4.4).\n\n``id``, ``redirect`` and ``crosswalk`` are identity evidence; ``previous_ids`` names ids the\nprovider no longer uses for this record (a merge or redirect), so the host can follow them.\n``conflict`` and ``ambiguous`` are never assigned automatically.",
+      "properties": {
+        "match": {
+          "enum": [
+            "id",
+            "redirect",
+            "crosswalk",
+            "exact",
+            "conflict",
+            "ambiguous"
+          ],
+          "title": "Match",
+          "type": "string"
+        },
+        "previous_ids": {
+          "maxProperties": 8,
+          "patternProperties": {
+            "^[a-z0-9][a-z0-9._-]*$": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "title": "Previous Ids",
+          "type": "object"
+        }
+      },
+      "required": [
+        "match"
+      ],
+      "title": "MetadataIdentity",
       "type": "object"
     },
     "MetadataLink": {
@@ -1064,6 +1115,37 @@
           },
           "title": "Custom",
           "type": "object"
+        },
+        "first_release": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MetadataRelease"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "releases": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/MetadataRelease"
+          },
+          "maxItems": 5,
+          "title": "Releases",
+          "type": "array"
+        },
+        "identity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MetadataIdentity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "title": "MetadataPatch",
@@ -1175,6 +1257,87 @@
         "relation"
       ],
       "title": "MetadataRelation",
+      "type": "object"
+    },
+    "MetadataRelease": {
+      "additionalProperties": false,
+      "description": "One release of a game, at year, month or day precision (Plugin API 1.1.20, C5.3).",
+      "properties": {
+        "date": {
+          "maxLength": 10,
+          "pattern": "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$",
+          "title": "Date",
+          "type": "string"
+        },
+        "precision": {
+          "enum": [
+            "year",
+            "month",
+            "day"
+          ],
+          "title": "Precision",
+          "type": "string"
+        },
+        "platform": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Platform"
+        },
+        "region": {
+          "anyOf": [
+            {
+              "pattern": "^(ww|eu|na|asia|oce|latam|[a-z]{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Region"
+        },
+        "edition": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Edition"
+        },
+        "category": {
+          "default": "full",
+          "enum": [
+            "full",
+            "early_access",
+            "beta",
+            "rerelease",
+            "port",
+            "demo"
+          ],
+          "title": "Category",
+          "type": "string"
+        }
+      },
+      "required": [
+        "date",
+        "precision"
+      ],
+      "title": "MetadataRelease",
       "type": "object"
     },
     "MetadataSeason": {
@@ -1373,5 +1536,5 @@
   "title": "ProviderResponse",
   "type": "object",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "x-api-contract-version": "1.1.19"
+  "x-api-contract-version": "1.1.20"
 }
