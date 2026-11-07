@@ -313,6 +313,8 @@ def test_a_merged_atlas_id_is_followed_to_the_live_record_for_metadata_artwork_a
     meta = plugin.metadata({"request": {}, "candidate": cand})["metadata"]
     assert meta["provider_ids"]["atlas"] == live and meta["provider_ids"]["steam"] == "5401"
     assert meta["links"][0]["url"] == f"{seeded.public}/game/{live}"
+    # the merged-away id travels only as the id the host should follow (C4.4 rule 2)
+    assert meta.pop("identity") == {"match": "redirect", "previous_ids": {"atlas": old}}
     assert old not in json.dumps(meta)
     assets = plugin.media({"request": {}, "candidate": cand})["assets"]
     assert [a["kind"] for a in assets] == ["logo"]
@@ -331,7 +333,9 @@ def test_a_provider_id_of_a_merged_record_resolves_to_the_live_id(plugin, gatewa
     atlas_api.ok("POST", f"/games/{b}/merge", admin, {"into": c})
     cand = selected(plugin, title="Chain Alpha Field", year=2015, provider_ids={"steam": "5411"})
     assert plugin.metadata({"request": {}, "candidate": cand})["metadata"]["provider_ids"]["atlas"] == c
-    assert plugin.metadata({"request": {}, "candidate": selected(plugin, a)})["metadata"]["provider_ids"]["atlas"] == c
+    by_old_id = plugin.metadata({"request": {}, "candidate": selected(plugin, a)})["metadata"]
+    assert by_old_id["provider_ids"]["atlas"] == c
+    assert by_old_id["identity"] == {"match": "redirect", "previous_ids": {"atlas": a}}
 
 
 def test_a_renamed_record_is_found_by_its_provider_id_and_not_by_its_old_title(plugin, gateway, atlas_api, seeded):

@@ -532,6 +532,31 @@ def resolve(values, selected):
     """Find the Atlas record for a candidate that only carries other providers' identifiers.
 
     Contract C4.3: a conflicting, ambiguous, cross-type or fuzzy answer is not an identity, so it yields None."""
+    return resolve_match(values, selected)[0]
+
+
+# Contract C4.4 (Plugin API 1.1.20): the identity verdicts the plugin reports with a patch it returns. `conflict` and
+# `ambiguous` answers return no patch (C4.3, P2), so they are not reported here.
+IDENTITY_MATCHES = {"id", "redirect", "crosswalk", "exact"}
+
+
+def identity_verdict(match, previous=None):
+    """`MetadataPatch.identity` for a record the plugin adopted, or None.
+
+    `previous` is the Atlas id the lookup named when Atlas served another, live record for it (a merge, C4.2): the
+    host then rewrites the id it saved to the live one (C4.4 rule 2) instead of keeping the merged-away id and
+    depending on Atlas's redirect. Only under a declared contract >= 1.1.20; an older host refuses the field."""
+    if not sends_releases() or match not in IDENTITY_MATCHES:
+        return None
+    verdict = {"match": match}
+    if isinstance(previous, str) and ATLAS_ID.fullmatch(previous):
+        verdict["previous_ids"] = {"atlas": previous}
+    return verdict
+
+
+def resolve_match(values, selected):
+    """`resolve` plus the identity verdict of the answer: ``(record, verdict)``, ``(None, None)`` when nothing was
+    adopted."""
     title = selected.get("title")
     evidence = {key: value for key, value in {
         # a shortened title would name another game, so an over-long one is not sent at all
@@ -539,7 +564,7 @@ def resolve(values, selected):
         "provider_ids": resolve_ids(selected) or None,
     }.items() if value}
     if not evidence:
-        return None
+        return None, None
     item = {**evidence, "media_type": selected.get("media_type", "game")}
     if selected.get("year"):
         item["release_date"] = str(selected["year"])
@@ -548,8 +573,15 @@ def resolve(values, selected):
     result = results[0] if isinstance(results, list) and results and isinstance(results[0], dict) else {}
     if result.get("reason") == "conflict" or result.get("conflict"):
         report_conflict(result)
-        return None
-    return result.get("game") if adopted(result) else None
+        return None, None
+    if not adopted(result):
+        return None, None
+    game = result.get("game")
+    # An Atlas without `reason` (before C4) names the match in `method` (`crosswalk` or `exact`).
+    match = result.get("reason") or result.get("method")
+    moved = result.get("redirected_from") if match == "redirect" else None
+    game_id = game.get("id") if isinstance(game, dict) else None
+    return game, identity_verdict(match, moved if moved != game_id else None)
 
 
 def locate(values, selected):
@@ -559,21 +591,40 @@ def locate(values, selected):
     (contract C4.2). Everything built from the record (provider_ids.atlas, the Atlas link, artwork and
     achievement requests) uses the record's own, live id, so the host learns the new id. A redirect that does
     not end on a well-formed Atlas id is refused."""
+    return locate_match(values, selected)[0]
+
+
+def locate_match(values, selected):
+    """`locate` plus the identity verdict (C4.4): ``(record, verdict)``, ``(None, None)`` when nothing matched.
+
+    A lookup by the Atlas id the host holds is `id`, or `redirect` with that id in `previous_ids` when Atlas served
+    the live record it was merged into; a `/resolve` lookup reports Atlas's own reason."""
     identity = external_id(selected, PROVIDER_ID, "atlas")
     if identity and not ATLAS_ID.match(identity):
-        return None
+        return None, None
     try:
-        record = call(values, "/games/" + quote(identity, safe=":")) if identity else resolve(values, selected)
+        if identity:
+            record = call(values, "/games/" + quote(identity, safe=":"))
+            live = record.get("id")
+            if live == identity:
+                verdict = identity_verdict("id")
+            elif record.get("redirected_from") is not None:
+                verdict = identity_verdict("redirect", identity)
+            else:
+                # another record without a redirect: not a move Atlas vouched for, so the host is told nothing
+                verdict = None
+        else:
+            record, verdict = resolve_match(values, selected)
         expected_type = selected.get("media_type", "game")
         if record and record.get("media_type", "game") != expected_type:
-            return None
+            return None, None
         if record and record.get("redirected_from") is not None and not (
                 isinstance(record.get("id"), str) and ATLAS_ID.fullmatch(record["id"])):
-            return None
-        return record
+            return None, None
+        return record, verdict
     except ProviderFailure as exc:
         if exc.status == 404:
-            return None
+            return None, None
         raise
 
 
@@ -769,7 +820,7 @@ def metadata(values):
     media_type = selected.get("media_type", "game")
     if media_type not in MEDIA_TYPES:
         return {}
-    record = locate(values, selected)
+    record, verdict = locate_match(values, selected)
     if not record or not record.get("title"):
         return {}
     if values["request"].get("resource") == "achievements":
@@ -780,6 +831,9 @@ def metadata(values):
             and not external_id(selected, PROVIDER_ID, "atlas"):
         record = with_relations(values, record)
     result = patch(record)
+    if verdict and result:
+        # C4.4: how the record was found, and the merged-away id the host should follow (rule 2)
+        result["identity"] = verdict
     identity = record.get("id")
     if isinstance(identity, str) and ATLAS_ID.fullmatch(identity):
         root = public_base_url()

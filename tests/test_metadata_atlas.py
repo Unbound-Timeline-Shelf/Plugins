@@ -685,7 +685,93 @@ def test_a_merged_atlas_id_is_served_under_the_live_id(atlas, monkeypatch):
     out = atlas.metadata({"request": {}, "candidate": selected})["metadata"]
     assert out["provider_ids"] == {"atlas": OTHER, "steam": "620", "igdb": "72"}
     assert out["links"][0]["url"] == "https://atlas.test/game/" + OTHER
+    # the merged-away id travels only as the id the host should follow (C4.4 rule 2), never as an id or a link
+    assert out.pop("identity") == {"match": "redirect", "previous_ids": {"atlas": GAME["id"]}}
     assert "redirected_from" not in out and GAME["id"] not in json.dumps(out)
+
+
+def by_atlas_id(atlas, monkeypatch, served, requested=GAME["id"], resource=None):
+    gateway = Gateway(monkeypatch, routes={"/games/" + requested: {"status": 200, "data": served},
+                                           "/achievements": {"status": 200, "data": {"results": [
+                                               {"id": "01JROW1", "key": "ak1:" + "a" * 26, "name": "One"}]}}})
+    selected = {"provider": atlas.PROVIDER_ID, "external_id": requested, "title": "Portal 2",
+                "provider_ids": {"atlas": requested}}
+    request = {"resource": resource} if resource else {}
+    result = atlas.metadata({"request": request, "candidate": selected})
+    jsonschema.validate(result, RESPONSE_SCHEMA)
+    return result.get("metadata", {}), gateway
+
+
+def test_a_lookup_by_the_held_atlas_id_reports_an_id_match(atlas, monkeypatch):
+    meta, _ = by_atlas_id(atlas, monkeypatch, {**GAME, "redirected_from": None})
+    assert meta["identity"] == {"match": "id"}
+    assert meta["provider_ids"]["atlas"] == GAME["id"]
+
+
+def test_a_merged_atlas_id_tells_the_host_which_saved_id_to_follow(atlas, monkeypatch):
+    """D1 (PHASE5 §4): without `identity.previous_ids` the host keeps the merged-away id for ever (C4.4 rule 2)."""
+    meta, _ = by_atlas_id(atlas, monkeypatch, {**GAME, "id": OTHER, "redirected_from": GAME["id"]})
+    assert meta["identity"] == {"match": "redirect", "previous_ids": {"atlas": GAME["id"]}}
+    assert meta["provider_ids"]["atlas"] == OTHER
+
+
+def test_a_chain_of_merges_names_the_id_the_host_holds(atlas, monkeypatch):
+    """A -> B -> C: Atlas follows the chain and answers C for A; the host holds A, so A is what it follows from."""
+    third = "atlas:" + "c" * 26
+    meta, _ = by_atlas_id(atlas, monkeypatch, {**GAME, "id": third, "redirected_from": GAME["id"]})
+    assert meta["identity"] == {"match": "redirect", "previous_ids": {"atlas": GAME["id"]}}
+    assert meta["provider_ids"]["atlas"] == third
+
+
+def test_another_record_without_a_redirect_is_not_reported_as_a_move(atlas, monkeypatch):
+    meta, _ = by_atlas_id(atlas, monkeypatch, {**GAME, "id": OTHER, "redirected_from": None})
+    assert "identity" not in meta and meta["provider_ids"]["atlas"] == OTHER
+
+
+@pytest.mark.parametrize("live_id", ["../../admin", "atlas:short", None])
+def test_a_malformed_redirect_still_sends_nothing(atlas, monkeypatch, live_id):
+    meta, _ = by_atlas_id(atlas, monkeypatch, {**GAME, "id": live_id, "redirected_from": GAME["id"]})
+    assert meta == {}
+
+
+def test_the_achievements_resource_carries_no_identity(atlas, monkeypatch):
+    meta, _ = by_atlas_id(atlas, monkeypatch, {**GAME, "id": OTHER, "redirected_from": GAME["id"]},
+                          resource="achievements")
+    assert meta["achievements"] and "identity" not in meta
+
+
+@pytest.mark.parametrize("served", [{**GAME, "redirected_from": None},
+                                    {**GAME, "id": OTHER, "redirected_from": GAME["id"]}])
+def test_no_identity_is_sent_under_an_older_declared_contract(atlas, monkeypatch, served):
+    """Plugin API 1.1.19 has no `identity`: the host would refuse the whole response. The patch is unchanged."""
+    older_contract(atlas, monkeypatch)
+    meta, _ = by_atlas_id(atlas, monkeypatch, served)
+    assert "identity" not in meta and meta["provider_ids"]["atlas"] == served["id"]
+
+
+@pytest.mark.parametrize("reason, method", [("id", "crosswalk"), ("crosswalk", "crosswalk"), ("exact", "exact"),
+                                            (None, "crosswalk"), (None, "exact")])
+def test_a_resolved_record_reports_atlas_reason_as_the_match(atlas, monkeypatch, reason, method):
+    data = resolved(reason, method)
+    if reason is None:  # an Atlas before C4 has no `reason`
+        data["results"][0].pop("reason")
+    out, _ = lookup(atlas, monkeypatch, data)
+    assert out["metadata"]["identity"] == {"match": reason or method}
+
+
+def test_a_resolved_redirect_names_the_id_atlas_followed(atlas, monkeypatch):
+    live = {**GAME, "id": OTHER}
+    out, _ = lookup(atlas, monkeypatch, resolved("redirect", "crosswalk", canonical=OTHER, game=live,
+                                                 redirected_from=GAME["id"]))
+    assert out["metadata"]["identity"] == {"match": "redirect", "previous_ids": {"atlas": GAME["id"]}}
+
+
+@pytest.mark.parametrize("moved", [None, "not-an-atlas-id", OTHER])
+def test_a_resolved_redirect_without_a_usable_previous_id_names_none(atlas, monkeypatch, moved):
+    live = {**GAME, "id": OTHER}
+    out, _ = lookup(atlas, monkeypatch, resolved("redirect", "crosswalk", canonical=OTHER, game=live,
+                                                 redirected_from=moved))
+    assert out["metadata"]["identity"] == {"match": "redirect"}
 
 
 def test_artwork_and_achievements_of_a_merged_id_use_the_live_id(atlas, monkeypatch):
@@ -1273,6 +1359,7 @@ def test_a_record_with_many_provider_ids_still_yields_a_valid_search_and_patch(a
     meta = atlas.metadata({"request": {}, "candidate": SELECTED})
     jsonschema.validate(meta, RESPONSE_SCHEMA)
     assert meta["metadata"]["provider_ids"] == ids
+
 
 def test_well_known_store_ids_survive_the_cut_before_obscure_namespaces(atlas):
     """The 32-id cut used to be alphabetical, so 40 namespaces sorting before "igdb" and "steam" dropped both."""

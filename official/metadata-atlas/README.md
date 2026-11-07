@@ -25,6 +25,7 @@ Use your own server, a LAN mirror or a public one; the plugin contacts only the 
 - **Achievements** are game-only definitions (name, description, hidden flag, global percentage, cached icons, stable IDs and source IDs), never player progress. The host stores definitions without changing progress and can resolve them through linked IDs such as Steam. Non-game records never request the game achievement endpoint.
 - **Media** lists only artwork Atlas has already downloaded and verified, as `<public-server>/media/<hash>` links. For anime, movies and TV, Atlas key art is exposed as a poster. Achievement icons use the same verified media path. The public URL must be reachable by the app's browser; keeping it separate from the API URL lets the app server use a private Docker address without exposing that address to browsers.
 - Merged Atlas IDs keep working: a record merged into another (also through a chain of merges) is returned under its current ID, and metadata, artwork and achievements are read from that live record.
+- **Identity** (Plugin API 1.1.20, contract C4.4): each metadata patch says how the record was found, as `identity.match` (`id` for the Atlas ID the host holds, otherwise Atlas's own `/resolve` reason: `redirect`, `crosswalk` or `exact`). When the Atlas ID the host holds was merged into another record, the patch is `{"match": "redirect", "previous_ids": {"atlas": <the held ID>}}` next to the live ID in `provider_ids`, so the host rewrites its saved ID to the live one (C4.4 rule 2) instead of keeping the merged-away ID and depending on Atlas's redirect. A record Atlas serves under another ID without a redirect is not reported as a move. A conflicting or ambiguous `/resolve` answer still returns no patch (logged, as above), so `identity.match` `conflict` is not sent yet. Under an older declared contract no `identity` is sent.
 - Failures are typed (`not_configured`, `invalid_configuration` for a bad URL or rejected token, `rate_limited`, `unavailable`); remote bodies and the token are never retained.
 - Personal data is never sent. Only titles, years and provider IDs go to the server.
 
@@ -33,7 +34,7 @@ Build development packages with `python tools/build_packages.py`. Unsigned previ
 ## Compatibility
 
 The plugin reads the contract it declares in its own `manifest.json` (the version the host validates its responses
-against) and sends `first_release`, `releases`, game `relations`, achievement `aliases` and the `platinum` tier only
+against) and sends `first_release`, `releases`, game `relations`, the patch `identity`, achievement `aliases` and the `platinum` tier only
 when that declaration is 1.1.20 or later. A host older than 1.1.20 refuses to install this release, so it never meets those fields; a build
 relabelled to an older contract, or a manifest that cannot be read, sends none of them. An Atlas that has no dates,
 keys or platinum yet simply leaves the fields out. Tiers, kinds, crossplay, precisions and release categories are
