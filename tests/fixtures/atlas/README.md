@@ -14,3 +14,9 @@ The fixture is replayed twice: against a mocked gateway (`tests/test_metadata_at
 `contracts/vocab-v1.json` at revision `f58ff1d` with its `.sha256`. `tests/test_metadata_atlas.py` pins its digest and
 compares it with this repository's `contracts/vocab-v1.json` and the host's copy in `tests/fixtures/host/`
 (`python tools/vocab_check.py compare ...`). It carries the Atlas-only `feed_kinds`, which the comparison skips.
+
+`relations-v1.json` is synthetic (not copied from Atlas): relations blocks in the shape `GET /api/v2/games/{id}`
+serves from Atlas A15 on (`atlas/relations.py` `of()` at `f58ff1d`: `parents`, `children`, `members_of`, `members`,
+`counts`, `truncated`; each item `{id, type, title, media_type}`), each with the `MetadataPatch.relations` the plugin
+must send (CONTRACTS-v1 C6.4). It includes types outside the shared vocabulary (`edition_of`, `bundle_contains`,
+`related_to`, `same_game`) that must be ignored. The live lane checks the same shape against a real Atlas.

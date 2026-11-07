@@ -64,7 +64,21 @@ RECORDS: dict[str, dict[str, Any]] = {
                         "custom": {"crossplay": "not_applicable", "players_max": 1}},
     "pre-1950 day": {"id": GAME_ID, "title": "Synthetic Classic", "release_date": "1937-12-21",
                      "first_release": {"date": "1937-12-21", "precision": "day"}},
+    "relations": {"id": GAME_ID, "title": "Synthetic Night Expansion", "release_date": "2021-02-02",
+                  "relations": {
+                      "parents": [{"id": "atlas:" + "b" * 26, "type": "dlc_of", "title": "Synthetic Garden",
+                                   "media_type": "game"},
+                                  {"id": "atlas:" + "c" * 26, "type": "edition_of", "title": "Unknown type",
+                                   "media_type": "game"}],
+                      "children": [{"id": "atlas:" + "d" * 26, "type": "mod_of", "title": "Incoming",
+                                    "media_type": "game"}],
+                      "members_of": [{"id": "atlas:" + "e" * 26, "type": "series_member", "title": "Synthetic",
+                                      "media_type": "series"}],
+                      "members": [], "counts": {}, "truncated": False}},
 }
+# What the host must ingest from the "relations" record (C6.4): kind and the ids that name the target.
+EXPECTED_RELATIONS = [{"kind": "dlc_of", "targets": {"atlas": "atlas:" + "b" * 26}},
+                      {"kind": "series_member", "targets": {"atlas": "atlas:" + "e" * 26}}]
 KEY = "ak1:" + "a" * 26
 ACHIEVEMENTS = [
     {"id": "01JROW1", "key": KEY, "keys": [KEY, "ak1:" + "b" * 26, "ak1:" + "c" * 26], "name": "Everything",
@@ -121,6 +135,36 @@ def uses_new_contract(response: dict[str, Any]) -> bool:
         "aliases" in item or item.get("tier") == "platinum" for item in meta.get("achievements", []))
 
 
+def check_relations(host, declared: str, current: dict[str, Any], older: dict[str, Any]) -> list[str]:
+    """C6.4: the host's own reader (`provider_reports.provider_relations`, after `confine_to_namespaces`, as a refresh
+    runs them) takes exactly the expected game relations from the plugin's patch, and none under 1.1.19."""
+    try:
+        from src.features.metadata.namespaces import confine_to_namespaces
+        from src.features.metadata.provider_reports import provider_relations
+    except ImportError as exc:
+        return [f"relations: the host has no game relation reader ({exc}); C6.4 needs the 1.1.20 host"]
+    from types import SimpleNamespace
+
+    plugin_id = "official.metadata-atlas.atlas"
+
+    def ingested(response: dict[str, Any], contract: str) -> list[dict[str, Any]]:
+        parsed = host.ProviderResponse.model_validate(response, context=host.contract_context(contract))
+        patch = confine_to_namespaces(parsed, {plugin_id, "atlas"}).metadata
+        source = SimpleNamespace(metadata={plugin_id: patch})
+        found = provider_relations({"k": source}, ["k"], {plugin_id: "atlas"}, {plugin_id: contract})
+        return [{"kind": item["kind"], "targets": item["targets"]} for item in found]
+
+    problems = []
+    name = "metadata: relations"
+    got = ingested(current[name], declared)
+    if got != EXPECTED_RELATIONS:
+        problems.append(f"relations: the host would ingest {got}, expected {EXPECTED_RELATIONS}")
+    if "relations" in (older[name].get("metadata") or {}):
+        problems.append("relations: sent under a 1.1.19 declaration")
+    print(f"relations: the host ingests {len(got)} game relations from the plugin's patch at {declared}")
+    return problems
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--host-root", required=True, type=Path)
@@ -171,6 +215,7 @@ def main() -> int:
                         "exercise them")
     print(f"validated {len(current)} responses at {declared} and 1.1.19 against host Plugin API "
           f"{PLUGIN_API_CONTRACT_VERSION}; {new_seen} carry 1.1.20 fields")
+    problems += check_relations(host, declared, current, older)
 
     registry = args.host_root / "src/backend/src/plugin_api/vocab.py"
     if registry.exists():
