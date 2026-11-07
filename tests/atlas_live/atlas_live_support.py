@@ -166,6 +166,23 @@ class Atlas:
             "media_type": media_type, "observations": [observation]})
         return result["results"][0]["atlas"]["canonical_id"]
 
+    def provider_achievements(self, cid: str, source: str, items: list[dict[str, Any]]) -> int:
+        """Store an achievement list as provider ``source`` would through a provider import.
+
+        Atlas's HTTP API writes achievement lists only as the curator, and a merged entry with several keys needs
+        a second source, so this runs Atlas's own ``facets.set_achievements`` inside the container (the same
+        seeding shortcut as ``store_blob``). Nothing in the plugin path uses it."""
+        script = ("import json,sys;from atlas.cli import _maker,_ctx;from atlas import facets;"
+                  "settings,maker=_maker();ctx=_ctx(settings,maker);args=json.loads(sys.stdin.read())\n"
+                  "with maker() as s:\n"
+                  " n=facets.set_achievements(s,ctx,args['cid'],args['source'],args['items'])\n"
+                  " s.commit()\n"
+                  "print(n)")
+        done = subprocess.run(["docker", "exec", "-i", self.container, "python", "-c", script],
+                              input=json.dumps({"cid": cid, "source": source, "items": items}),
+                              check=True, capture_output=True, text=True)
+        return int(done.stdout.strip().splitlines()[-1])
+
     def store_blob(self, data: bytes) -> str:
         """Put an image into the node's media store (as an upload would) and return its sha256 digest."""
         name = hashlib.sha256(data).hexdigest()[:16] + ".png"
