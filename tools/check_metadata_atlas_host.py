@@ -14,6 +14,8 @@ catalogue with a platinum entry and merged keys. Every response is validated wit
 * the same plugin switched to a 1.1.19 declaration: every response is accepted, and the host refuses each
   1.1.20 response under that older declaration, which shows the switch is what keeps an older contract safe.
 
+The host's own refresh decision (C4.4 rule 2) must follow a merged Atlas id from the plugin's patch.
+
 It also compares the plugin's vocabulary registry with the host's live registry (C7.4). Exit 0 when everything
 holds; any failure is printed and exits 1.
 """
@@ -75,6 +77,9 @@ RECORDS: dict[str, dict[str, Any]] = {
                       "members_of": [{"id": "atlas:" + "e" * 26, "type": "series_member", "title": "Synthetic",
                                       "media_type": "series"}],
                       "members": [], "counts": {}, "truncated": False}},
+    # GAME_ID was merged into LIVE_ID: Atlas serves the live record for the id the host holds (C4.2)
+    "merged": {"id": "atlas:" + "f" * 26, "title": "Synthetic Survivor", "release_date": "2012-05-05",
+               "redirected_from": GAME_ID, "provider_ids": {"steam": "880001"}},
 }
 # What the host must ingest from the "relations" record (C6.4): kind and the ids that name the target.
 EXPECTED_RELATIONS = [{"kind": "dlc_of", "targets": {"atlas": "atlas:" + "b" * 26}},
@@ -165,6 +170,52 @@ def check_relations(host, declared: str, current: dict[str, Any], older: dict[st
     return problems
 
 
+def check_identity(host, declared: str, current: dict[str, Any], older: dict[str, Any]) -> list[str]:
+    """C4.4 rule 2: the host's own refresh decision (`refresh_match.classify`, fed by `provider_identities` after
+    `confine_to_namespaces`, as a refresh runs them) follows the merged Atlas id from the plugin's patch, and the
+    1.1.19 patch carries no identity (the host keeps the saved id there, as before).
+
+    `refresh_match` imports SQLAlchemy, which this repository's requirements do not install: without it the check
+    stops after the host's own `provider_identities` and says so (the decision itself is then not exercised)."""
+    try:
+        from src.features.metadata.namespaces import confine_to_namespaces
+        from src.features.metadata.provider_reports import provider_identities
+    except ImportError as exc:
+        return [f"identity: the host has no identity reader ({exc}); C4.4 needs the 1.1.20 host"]
+    from types import SimpleNamespace
+
+    plugin_id = "official.metadata-atlas.atlas"
+    name = "metadata: merged"
+    live = RECORDS["merged"]["id"]
+    problems = []
+    if "identity" in (older[name].get("metadata") or {}):
+        problems.append("identity: sent under a 1.1.19 declaration")
+    parsed = host.ProviderResponse.model_validate(current[name], context=host.contract_context(declared))
+    patch = confine_to_namespaces(parsed, {plugin_id, "atlas"}).metadata
+    identities = provider_identities({"k": SimpleNamespace(metadata={plugin_id: patch})}, ["k"], [plugin_id])
+    verdict = identities.get(plugin_id) or {}
+    if verdict.get("match") != "redirect" or verdict.get("previous_ids") != {"atlas": GAME_ID}             or patch.provider_ids.get("atlas") != live:
+        return problems + [f"identity: the host reads {identities} and atlas id {patch.provider_ids.get('atlas')}, "
+                           f"expected a redirect from {GAME_ID} to {live}"]
+    try:
+        from src.features.game_identity import refresh_match
+    except ModuleNotFoundError as exc:
+        if exc.name != "sqlalchemy":
+            raise
+        print(f"identity: the host reads a redirect from {GAME_ID} to {live}; its refresh decision was NOT run "
+              "(SQLAlchemy is not installed here)")
+        return problems
+    decision = refresh_match.classify({"atlas": GAME_ID}, {plugin_id: dict(patch.provider_ids)},
+                                      game_title="Synthetic", reported_title=patch.title, identities=identities)
+    expected = {"atlas": {"from": GAME_ID, "to": live, "provider": plugin_id}}
+    if decision.tier != "id" or decision.followed != expected:
+        problems.append(f"identity: the host decides {decision.tier} and follows {decision.followed}, "
+                        f"expected id and {expected}")
+    print(f"identity: the host follows {GAME_ID} -> {live} from the plugin's patch at {declared} "
+          f"(tier {decision.tier})")
+    return problems
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--host-root", required=True, type=Path)
@@ -216,6 +267,7 @@ def main() -> int:
     print(f"validated {len(current)} responses at {declared} and 1.1.19 against host Plugin API "
           f"{PLUGIN_API_CONTRACT_VERSION}; {new_seen} carry 1.1.20 fields")
     problems += check_relations(host, declared, current, older)
+    problems += check_identity(host, declared, current, older)
 
     registry = args.host_root / "src/backend/src/plugin_api/vocab.py"
     if registry.exists():
