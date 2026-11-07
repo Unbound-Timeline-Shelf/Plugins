@@ -16,7 +16,7 @@ def test_all_maintained_sources_have_full_contracts(built_distribution):
     }
 
 
-@pytest.mark.parametrize("contract", [None, "1.0.0", "1.1.20"])
+@pytest.mark.parametrize("contract", [None, "1.0.0", "1.1.21"])
 def test_source_validation_rejects_unmigrated_contracts(tmp_path, contract):
     shutil.copytree(ROOT / "examples/ui-api", tmp_path / "examples/ui-api")
     path = tmp_path / "examples/ui-api/manifest.json"
