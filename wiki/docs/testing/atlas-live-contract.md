@@ -56,6 +56,15 @@ dispatch input). Bump the pin deliberately; the lane is how you learn what a new
   `external_id` and the Atlas row id as `source_ids["atlas.row"]`; the key survives an unchanged re-import and an edit of
   other entries. The stability test needs an Atlas with keys (A4 or later) and fails against an older one; the bridge
   and edit tests cover both cells of the compatibility matrix (key present, and the documented fallback to the row id).
+* **Plugin API 1.1.20** (contracts C5.3, C2.6, C7): a month-precision first release with regional entries reaches the
+  host as `first_release` and `releases` without a `release_date`; a curator year lock is sent as a year, never as
+  1 January; a `releases` lock is forwarded as the release list; `platinum` passes through; an achievement two sources
+  list sends its other key as an alias (the second source is written with Atlas's own `facets.set_achievements` in the
+  container, because the API writes lists only as the curator). Under a 1.1.19 declaration (the plugin's
+  `API_CONTRACT` switched in the test) the same records send none of those fields. These tests branch on what the
+  Atlas under test serves: against an Atlas before contract C5/C7 they assert that it refuses the dated observation,
+  the platinum list and the `releases` lock, that a free-text `release_date` lock (`TBA`) sends no date, and that a
+  year lock in the legacy key is still read as a year. The lane was run against both cells (see the pull request).
 * **Achievements**: 450 entries over three pages, byte-bounded splitting of oversized pages, hidden-entry
   redaction, icon URLs fetched without credentials, cursor handling, exact request counts.
 * **Artwork**: cached copies only, `key_art` to `poster`, `public_base_url`.

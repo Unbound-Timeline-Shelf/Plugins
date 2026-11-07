@@ -8,7 +8,7 @@ except ImportError:
     from distribution import ROOT, canonical_json, collect_payload, discover_plugins
     from validate_packages import validate_current_contract
 
-SUPPORTED_CONTRACTS = frozenset(f"1.1.{minor}" for minor in range(20))
+SUPPORTED_CONTRACTS = frozenset(f"1.1.{minor}" for minor in range(21))
 
 
 def check(root=ROOT) -> None:
@@ -17,7 +17,7 @@ def check(root=ROOT) -> None:
         if manifest.get("api_contract_version") not in SUPPORTED_CONTRACTS:
             raise ValueError(
                 f"{source.name}: maintained source must explicitly target a supported "
-                "Plugin API contract version through v1.1.19"
+                "Plugin API contract version through v1.1.20"
             )
         files, metadata = collect_payload(root, source, manifest)
         # The existing validator expects generated version/policy fields.
