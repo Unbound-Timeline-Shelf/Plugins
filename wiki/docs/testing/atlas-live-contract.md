@@ -65,6 +65,12 @@ dispatch input). Bump the pin deliberately; the lane is how you learn what a new
   Atlas under test serves: against an Atlas before contract C5/C7 they assert that it refuses the dated observation,
   the platinum list and the `releases` lock, that a free-text `release_date` lock (`TBA`) sends no date, and that a
   year lock in the legacy key is still read as a year. The lane was run against both cells (see the pull request).
+* **Relations** (Atlas #86, contract C6.4): a DLC related to its base game with Atlas's curate API reaches the
+  host as a `dlc_of` relation naming the base game's Atlas id, both by Atlas id and through `/resolve` by its
+  Steam id (the plugin then reads `GET /games/{id}`, the only answer with the relations block); the base game sends
+  no relation (incoming edges travel with the other record); a merge of the parent moves the relation to the
+  survivor; a 1.1.19 declaration sends none. Against an Atlas before relations (A15) the route is absent and the
+  tests assert that no `relations` key is sent.
 * **Achievements**: 450 entries over three pages, byte-bounded splitting of oversized pages, hidden-entry
   redaction, icon URLs fetched without credentials, cursor handling, exact request counts.
 * **Artwork**: cached copies only, `key_art` to `poster`, `public_base_url`.
@@ -79,7 +85,6 @@ turns XPASS, which is a failure, so the fixing change must remove the marker and
 
 | Test | Waiting for |
 | --- | --- |
-| `atlas_86_a_child_edition_or_dlc_names_its_parent` | Atlas #86: no relationships, so no `relations` reach the host |
 | `n_plus_one_media_needs_one_request_for_a_known_atlas_id` | plugin: re-reads `/games/<id>` before `/artwork` |
 | `n_plus_one_each_achievement_page_costs_one_request` | plugin: re-reads `/games/<id>` for every achievements page |
 
