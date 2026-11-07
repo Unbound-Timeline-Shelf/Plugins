@@ -1273,3 +1273,14 @@ def test_a_record_with_many_provider_ids_still_yields_a_valid_search_and_patch(a
     meta = atlas.metadata({"request": {}, "candidate": SELECTED})
     jsonschema.validate(meta, RESPONSE_SCHEMA)
     assert meta["metadata"]["provider_ids"] == ids
+
+def test_well_known_store_ids_survive_the_cut_before_obscure_namespaces(atlas):
+    """The 32-id cut used to be alphabetical, so 40 namespaces sorting before "igdb" and "steam" dropped both."""
+    obscure = {f"a{n:02d}": str(n) for n in range(40)}
+    record = {**GAME, "provider_ids": {**obscure, "steam": "620", "igdb": "72", "gog": "1207", "tmdb": "9",
+                                       "zzz": "1"}}
+    ids = atlas.record_provider_ids(record)
+    assert len(ids) == 32
+    assert list(ids)[:5] == ["atlas", "steam", "igdb", "gog", "tmdb"]
+    assert list(ids)[5:] == [f"a{n:02d}" for n in range(27)]  # the rest stay in sorted order
+    assert "zzz" not in ids

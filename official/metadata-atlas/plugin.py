@@ -225,15 +225,29 @@ def release_fields(record):
 # own namespace rule also allows a leading ".", "-" or "_".
 HOST_ID_KEY = re.compile(r"[a-z0-9][a-z0-9._-]{0,127}", re.ASCII)
 HOST_ID_LIMIT, HOST_ID_LENGTH = 32, 512
+# Store and catalogue namespaces that name a game (or show) for the host and the person, in the order they are kept
+# when a record claims more namespaces than the host's 32: Atlas's own store list (`integrations.STORES`), the
+# console stores it scopes by platform, then the anime, film and TV catalogues. Everything else follows, sorted.
+WELL_KNOWN_NAMESPACES = ("steam", "igdb", "gog", "epic", "rawg", "itch", "tgdb", "psn", "playstation", "xbox",
+                         "microsoft", "nintendo", "anilist", "mal", "kitsu", "anidb", "tmdb", "imdb", "tvdb",
+                         "tvmaze")
+NAMESPACE_RANK = {name: index for index, name in enumerate(WELL_KNOWN_NAMESPACES)}
+
+
+def _namespace_order(key):
+    return (NAMESPACE_RANK.get(key, len(NAMESPACE_RANK)), key)
 
 
 def record_provider_ids(record):
-    """The record's provider ids as the host accepts them: `atlas` first, then the other namespaces in sorted order,
-    at most 32 in all. A value that is not a string or an integer, or does not fit, is left out (it was sent as
-    ``str(value)`` before, so ``None`` became the id "None" and one bad value made the whole response invalid)."""
+    """The record's provider ids as the host accepts them, at most 32 in all: `atlas` first, then the well-known
+    store and catalogue namespaces (WELL_KNOWN_NAMESPACES order), then the others in sorted order, so a record whose
+    sources claim many obscure namespaces never loses its Steam or IGDB id to the cut. A value that is not a string
+    or an integer, or does not fit, is left out (it was sent as ``str(value)`` before, so ``None`` became the id
+    "None" and one bad value made the whole response invalid)."""
     ids = {"atlas": record["id"]}
     raw = record.get("provider_ids")
-    for key in sorted(key for key in raw if isinstance(key, str)) if isinstance(raw, dict) else []:
+    for key in sorted((key for key in raw if isinstance(key, str)), key=_namespace_order) \
+            if isinstance(raw, dict) else []:
         value = raw[key]
         if key == "atlas" or not HOST_ID_KEY.fullmatch(key) or isinstance(value, bool) \
                 or not isinstance(value, (str, int)):
