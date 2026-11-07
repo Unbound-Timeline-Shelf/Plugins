@@ -1,0 +1,92 @@
+{
+  "description": "Synthetic GET /api/v2/games/{id} relations blocks (CONTRACTS-v1 C6.3, Atlas A15) and the MetadataPatch.relations the Atlas plugin must send for each (C6.4, P5). Shape: atlas/relations.py of() at f58ff1d: parents, children, members_of and members, each item {id, type, title, media_type}, ordered by type (vocabulary order) then id, at most 200 per list, plus counts and truncated.",
+  "provider": "official.metadata-atlas.atlas",
+  "cases": [
+    {
+      "name": "dlc with a base game and a series",
+      "record_id": "atlas:dddddddddddddddddddddddddd",
+      "relations": {
+        "parents": [
+          {"id": "atlas:bbbbbbbbbbbbbbbbbbbbbbbbbb", "type": "dlc_of", "title": "Orbit Garden", "media_type": "game"}
+        ],
+        "children": [
+          {"id": "atlas:eeeeeeeeeeeeeeeeeeeeeeeeee", "type": "mod_of", "title": "Night Expansion Plus", "media_type": "game"}
+        ],
+        "members_of": [
+          {"id": "atlas:ssssssssssssssssssssssssss", "type": "series_member", "title": "Orbit", "media_type": "series"}
+        ],
+        "members": [],
+        "counts": {"parents": 1, "children": 1, "members_of": 1, "members": 0},
+        "truncated": false
+      },
+      "expect": [
+        {"relation": "dlc_of", "id": "atlas:bbbbbbbbbbbbbbbbbbbbbbbbbb", "title": "Orbit Garden"},
+        {"relation": "series_member", "id": "atlas:ssssssssssssssssssssssssss", "title": "Orbit"}
+      ]
+    },
+    {
+      "name": "remake, port and a collection, served out of order with a duplicate",
+      "record_id": "atlas:rrrrrrrrrrrrrrrrrrrrrrrrrr",
+      "relations": {
+        "parents": [
+          {"id": "atlas:pppppppppppppppppppppppppp", "type": "port_of", "title": "Harbor (PS4)", "media_type": "game"},
+          {"id": "atlas:oooooooooooooooooooooooooo", "type": "remake_of", "title": "Harbor (1998)", "media_type": "game"},
+          {"id": "atlas:oooooooooooooooooooooooooo", "type": "remake_of", "title": "Harbor (1998)", "media_type": "game"},
+          {"id": "atlas:aaaaaaaaaaaaaaaaaaaaaaaaaa", "type": "version_of", "title": "Harbor", "media_type": "game"}
+        ],
+        "children": [],
+        "members_of": [
+          {"id": "atlas:cccccccccccccccccccccccccc", "type": "collection_member", "title": "Harbor Trilogy", "media_type": "collection"}
+        ],
+        "members": [],
+        "counts": {"parents": 4, "children": 0, "members_of": 1, "members": 0},
+        "truncated": false
+      },
+      "expect": [
+        {"relation": "version_of", "id": "atlas:aaaaaaaaaaaaaaaaaaaaaaaaaa", "title": "Harbor"},
+        {"relation": "remake_of", "id": "atlas:oooooooooooooooooooooooooo", "title": "Harbor (1998)"},
+        {"relation": "port_of", "id": "atlas:pppppppppppppppppppppppppp", "title": "Harbor (PS4)"},
+        {"relation": "collection_member", "id": "atlas:cccccccccccccccccccccccccc", "title": "Harbor Trilogy"}
+      ]
+    },
+    {
+      "name": "types outside the shared vocabulary are ignored",
+      "record_id": "atlas:uuuuuuuuuuuuuuuuuuuuuuuuuu",
+      "relations": {
+        "parents": [
+          {"id": "atlas:bbbbbbbbbbbbbbbbbbbbbbbbbb", "type": "edition_of", "title": "Orbit Garden", "media_type": "game"},
+          {"id": "atlas:cccccccccccccccccccccccccc", "type": "bundle_contains", "title": "Orbit Bundle", "media_type": "collection"},
+          {"id": "atlas:ffffffffffffffffffffffffff", "type": "related_to", "title": "Something", "media_type": "game"},
+          {"id": "atlas:gggggggggggggggggggggggggg", "type": "same_game", "title": "Orbit Garden", "media_type": "game"},
+          {"id": "atlas:hhhhhhhhhhhhhhhhhhhhhhhhhh", "type": "expansion_of", "title": "Orbit Garden Classic", "media_type": "game"}
+        ],
+        "children": [],
+        "members_of": [
+          {"id": "atlas:iiiiiiiiiiiiiiiiiiiiiiiiii", "type": "franchise_member", "title": "Orbit Universe", "media_type": "series"}
+        ],
+        "members": [],
+        "counts": {"parents": 5, "children": 0, "members_of": 1, "members": 0},
+        "truncated": false
+      },
+      "expect": [
+        {"relation": "expansion_of", "id": "atlas:hhhhhhhhhhhhhhhhhhhhhhhhhh", "title": "Orbit Garden Classic"}
+      ],
+      "ignored_types": ["bundle_contains", "edition_of", "franchise_member", "related_to", "same_game"]
+    },
+    {
+      "name": "a base game only has incoming relations",
+      "record_id": "atlas:bbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "relations": {
+        "parents": [],
+        "children": [
+          {"id": "atlas:dddddddddddddddddddddddddd", "type": "dlc_of", "title": "Orbit Garden - Night Expansion", "media_type": "game"}
+        ],
+        "members_of": [],
+        "members": [],
+        "counts": {"parents": 0, "children": 1, "members_of": 0, "members": 0},
+        "truncated": false
+      },
+      "expect": []
+    }
+  ]
+}

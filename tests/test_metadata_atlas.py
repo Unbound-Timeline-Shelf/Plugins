@@ -1051,3 +1051,225 @@ def test_the_check_fails_when_the_published_file_is_stale(tmp_path, capsys):
     (tmp_path / "contracts" / "vocab-v1.json.sha256").write_text("0" * 64 + "  vocab-v1.json\n", encoding="utf-8")
     assert tool.main(["check", "--root", str(tmp_path)]) == 1
     assert "run: python tools/vocab_check.py generate" in capsys.readouterr().out
+
+
+# --- Relations between works (contract C6.4, P5) ---------------------------------------------------------------------
+
+RELATIONS_FIXTURE = json.loads((ROOT / "tests/fixtures/atlas/relations-v1.json").read_text(encoding="utf-8"))
+RELATION_CASES = RELATIONS_FIXTURE["cases"]
+EMPTY_BLOCK = {"parents": [], "children": [], "members_of": [], "members": [],
+               "counts": {"parents": 0, "children": 0, "members_of": 0, "members": 0}, "truncated": False}
+
+
+def related(atlas, monkeypatch, block, record_id=GAME["id"]):
+    """The relations the plugin sends for one Atlas record (GET /games/{id}) carrying ``block`` as `relations`."""
+    record = {**GAME, "id": record_id, "relations": block}
+    Gateway(monkeypatch, routes={"/games/" + record_id: {"status": 200, "data": record}})
+    selected = {"provider": atlas.PROVIDER_ID, "external_id": record_id, "title": "Portal 2"}
+    result = atlas.metadata({"request": {}, "candidate": selected})
+    jsonschema.validate(result, RESPONSE_SCHEMA)
+    assert "failure" not in result
+    return result["metadata"].get("relations")
+
+
+def expected_relations(atlas, case):
+    return [{"candidate": {"provider": atlas.PROVIDER_ID, "external_id": item["id"], "title": item["title"],
+                           "media_type": "game", "provider_ids": {"atlas": item["id"]}},
+             "relation": item["relation"], "group": "related"} for item in case["expect"]] or None
+
+
+@pytest.mark.parametrize("case", RELATION_CASES, ids=lambda case: case["name"])
+def test_outgoing_atlas_relations_become_game_relations_in_a_fixed_order(atlas, monkeypatch, case):
+    """parents and members_of are edges from this record (C6.2: `to` is the parent); children and members are the
+    other records' own edges and travel with their refresh. Order: vocabulary order of the type, then the Atlas id."""
+    assert related(atlas, monkeypatch, case["relations"], case["record_id"]) == expected_relations(atlas, case)
+
+
+@pytest.mark.parametrize("case", RELATION_CASES, ids=lambda case: case["name"])
+def test_relations_do_not_depend_on_the_order_atlas_lists_them_in(atlas, monkeypatch, case):
+    block = {name: list(reversed(value)) if isinstance(value, list) else value
+             for name, value in case["relations"].items()}
+    assert related(atlas, monkeypatch, block, case["record_id"]) == expected_relations(atlas, case)
+
+
+def test_unknown_relation_types_are_ignored_and_logged_without_titles(atlas, monkeypatch, capsys):
+    case = next(c for c in RELATION_CASES if c.get("ignored_types"))
+    sent = related(atlas, monkeypatch, case["relations"], case["record_id"])
+    assert [item["relation"] for item in sent] == ["expansion_of"]
+    logged = capsys.readouterr().err
+    assert all(name in logged for name in case["ignored_types"])
+    assert "Orbit Universe" not in logged and "Orbit Bundle" not in logged, "titles never reach the log"
+
+
+BASE = "atlas:" + "b" * 26
+
+
+@pytest.mark.parametrize("block", [
+    None, [], "dlc_of", 7, {"parents": None}, {"parents": BASE}, {"parents": {"id": BASE}},
+    {"parents": [None, 7, "x", [], {}]},
+    {"parents": [{"id": BASE, "type": None, "title": "Base"}]},
+    {"parents": [{"id": BASE, "type": ["dlc_of"], "title": "Base"}]},
+    {"parents": [{"id": BASE, "type": "x" * 5000, "title": "Base"}]},
+    {"parents": [{"id": BASE + "\n", "type": "dlc_of", "title": "Base"}]},
+    {"parents": [{"id": "../../admin", "type": "dlc_of", "title": "Base"}]},
+    {"parents": [{"id": 12, "type": "dlc_of", "title": "Base"}]},
+    {"parents": [{"id": GAME["id"], "type": "dlc_of", "title": "Itself"}]},
+    {"parents": [{"id": BASE, "type": "dlc_of", "title": None}]},
+    {"parents": [{"id": BASE, "type": "dlc_of", "title": "   "}]},
+    {"parents": [{"id": BASE, "type": "dlc_of", "title": "x" * 513}]},
+    {"children": [{"id": BASE, "type": "dlc_of", "title": "A child"}],
+     "members": [{"id": "atlas:" + "c" * 26, "type": "series_member", "title": "A member"}]},
+], ids=repr)
+def test_a_malformed_or_missing_relations_block_sends_no_relations_and_never_fails(atlas, monkeypatch, block):
+    assert related(atlas, monkeypatch, block) is None
+
+
+def test_an_atlas_without_relations_is_mapped_as_before(atlas, monkeypatch):
+    """An Atlas before A15 (protocol 1.4) has no relations key; with an empty block the patch is the same."""
+    before = details(atlas, monkeypatch, GAME)
+    assert "relations" not in before
+    assert details(atlas, monkeypatch, {**GAME, "relations": EMPTY_BLOCK}) == before
+
+
+def test_titles_are_collapsed_and_duplicates_keep_one_entry(atlas, monkeypatch):
+    sent = related(atlas, monkeypatch, {"parents": [
+        {"id": BASE, "type": "dlc_of", "title": "  Orbit\tGarden  "},
+        {"id": BASE, "type": "dlc_of", "title": "Orbit Garden (other spelling)"},
+        {"id": BASE, "type": "mod_of", "title": "Orbit Garden"}]})
+    assert [(item["relation"], item["candidate"]["title"]) for item in sent] == [
+        ("dlc_of", "Orbit Garden"), ("mod_of", "Orbit Garden")]
+
+
+def _atlas_id(number, letter):
+    return "atlas:" + format(number, "026d").replace("0", letter)
+
+
+def test_relations_are_bounded(atlas, monkeypatch, capsys):
+    parents = [{"id": _atlas_id(n, "a"), "type": "dlc_of", "title": f"Base {n}"} for n in range(200)]
+    members = [{"id": _atlas_id(n, "s"), "type": "series_member", "title": f"Series {n}"} for n in range(200)]
+    sent = related(atlas, monkeypatch, {"parents": parents, "members_of": members})
+    assert len(sent) == atlas.RELATION_LIMIT == 64
+    assert {item["relation"] for item in sent} == {"dlc_of"}, "vocabulary order first: hierarchy before membership"
+    assert sent == sorted(sent, key=lambda item: item["candidate"]["external_id"])
+    assert "64" in capsys.readouterr().err
+
+
+def test_relations_are_sent_only_for_games(atlas, monkeypatch):
+    block = RELATION_CASES[0]["relations"]
+    for media_type in ("anime", "movie", "tv_show"):
+        record = {**GAME, "media_type": media_type, "relations": block}
+        Gateway(monkeypatch, routes={"/games/" + GAME["id"]: {"status": 200, "data": record}})
+        selected = {**SELECTED, "media_type": media_type}
+        assert "relations" not in atlas.metadata({"request": {}, "candidate": selected})["metadata"]
+
+
+def test_relations_are_not_sent_under_an_older_declared_contract(atlas, monkeypatch):
+    """Under 1.1.19 a vocabulary relation has no defined direction (M7: such relations are not ingested)."""
+    older_contract(atlas, monkeypatch)
+    assert related(atlas, monkeypatch, RELATION_CASES[0]["relations"], RELATION_CASES[0]["record_id"]) is None
+
+
+def test_the_achievements_resource_never_carries_relations(atlas, monkeypatch):
+    record = {**GAME, "relations": RELATION_CASES[0]["relations"]}
+    Gateway(monkeypatch, routes={"/games/" + GAME["id"]: {"status": 200, "data": record},
+                                 "/games/" + GAME["id"] + "/achievements": {"status": 200, "data": ACHIEVEMENTS}})
+    out = atlas.metadata({"request": {"resource": "achievements"}, "candidate": SELECTED})
+    assert set(out["metadata"]) == {"achievements"}
+
+
+# --- One game seen by Steam, IGDB, RAWG and Atlas: identity and merge behaviour ------------------------------------
+
+def test_a_game_found_through_its_steam_id_also_gets_its_relations(atlas, monkeypatch):
+    """/resolve answers with the record view, which has no relations block (Atlas adds it only to GET /games/{id}).
+    A game the host knows by its Steam id must get the same relations as one it knows by its Atlas id."""
+    gateway = Gateway(monkeypatch, routes={
+        "/resolve": {"status": 200, "data": resolved("crosswalk", "crosswalk", game={**GAME})},
+        "/games/" + GAME["id"]: {"status": 200, "data": {**GAME, "relations": RELATION_CASES[0]["relations"]}}})
+    out = atlas.metadata({"request": {}, "candidate": STEAM_ONLY})
+    jsonschema.validate(out, RESPONSE_SCHEMA)
+    assert [item["relation"] for item in out["metadata"]["relations"]] == ["dlc_of", "series_member"]
+    assert [call["url"].split("?")[0].rsplit("/api/v2", 1)[1] for call in gateway.calls] == [
+        "/resolve", "/games/" + GAME["id"]]
+
+
+@pytest.mark.parametrize("status", [404, 500, 429])
+def test_a_failed_relations_read_after_resolve_keeps_the_resolved_metadata(atlas, monkeypatch, status):
+    Gateway(monkeypatch, routes={"/resolve": {"status": 200, "data": resolved("crosswalk", "crosswalk")},
+                                 "/games/" + GAME["id"]: {"status": status, "error": "x"}})
+    out = atlas.metadata({"request": {}, "candidate": STEAM_ONLY})
+    assert out["metadata"]["provider_ids"]["atlas"] == GAME["id"] and "relations" not in out["metadata"]
+
+
+def test_relations_read_after_resolve_must_belong_to_the_resolved_record(atlas, monkeypatch):
+    """A merge between the two reads answers GET with another record: its relations are not this game's."""
+    moved = {**GAME, "id": OTHER, "redirected_from": GAME["id"], "relations": RELATION_CASES[0]["relations"]}
+    Gateway(monkeypatch, routes={"/resolve": {"status": 200, "data": resolved("crosswalk", "crosswalk")},
+                                 "/games/" + GAME["id"]: {"status": 200, "data": moved}})
+    out = atlas.metadata({"request": {}, "candidate": STEAM_ONLY})
+    assert out["metadata"]["provider_ids"]["atlas"] == GAME["id"] and "relations" not in out["metadata"]
+
+
+def test_an_atlas_id_lookup_needs_no_second_read_for_relations(atlas, monkeypatch):
+    gateway = Gateway(monkeypatch, routes={"/games/" + GAME["id"]: {"status": 200, "data": GAME}})
+    atlas.metadata({"request": {}, "candidate": SELECTED})
+    assert len(gateway.calls) == 1, "an Atlas without relations is not asked twice"
+
+
+# The host's library candidate (`service.library_candidate`): the game's stored ids, plus the candidate's own
+# identity under its provider id (`identity.identities`), which for a library game is `local` = the title.
+LIBRARY_REFRESH = {"provider": "local", "external_id": "Portal 2", "title": "Portal 2", "year": 2011,
+                   "media_type": "game",
+                   "provider_ids": {"steam": "620", "igdb": "72", "rawg": "4200", "local": "Portal 2"}}
+
+
+def test_a_library_refresh_sends_only_real_provider_ids_to_resolve(atlas, monkeypatch):
+    """`local` is not an identifier namespace and its value is the title: it must not reach Atlas as identity evidence."""
+    _, gateway = lookup(atlas, monkeypatch, resolved("crosswalk", "crosswalk"), selected=LIBRARY_REFRESH)
+    assert gateway.calls[0]["body"]["items"][0]["provider_ids"] == {"steam": "620", "igdb": "72", "rawg": "4200"}
+
+
+def test_a_steam_candidate_does_not_send_its_provider_id_as_a_namespace(atlas, monkeypatch):
+    selected = {"provider": "core.steam", "external_id": "620", "title": "Portal 2", "year": 2011,
+                "provider_ids": {"steam": "620", "core.steam": "620", "igdb": "72"}}
+    _, gateway = lookup(atlas, monkeypatch, resolved("crosswalk", "crosswalk"), selected=selected)
+    assert gateway.calls[0]["body"]["items"][0]["provider_ids"] == {"steam": "620", "igdb": "72"}
+
+
+def test_resolve_stays_inside_the_limits_atlas_validates(atlas, monkeypatch):
+    """Atlas answers 422 to a provider id over 256 characters, more than 32 ids or a title over 500 characters, and
+    the plugin then reports Atlas as unavailable for that game on every refresh. The host allows 512 and 32 + 1."""
+    ids = {f"ns{n:02d}": str(n) for n in range(40)}
+    selected = {"provider": "local", "external_id": "x" * 510, "title": "x" * 510, "year": 2011,
+                "provider_ids": {**ids, "steam": "620", "long": "9" * 300, "local": "x" * 510}}
+    _, gateway = lookup(atlas, monkeypatch, resolved("crosswalk", "crosswalk"), selected=selected)
+    item = gateway.calls[0]["body"]["items"][0]
+    assert len(item["provider_ids"]) == 32 and "long" not in item["provider_ids"]
+    assert all(len(value) <= 256 for value in item["provider_ids"].values())
+    assert list(item["provider_ids"]) == sorted(item["provider_ids"]), "a deterministic choice of 32"
+    assert "title" not in item, "an over-long title is not sent (cut short, it would name another game)"
+
+
+def test_a_candidate_with_only_unusable_ids_and_title_sends_nothing(atlas, monkeypatch):
+    gateway = Gateway(monkeypatch)
+    selected = {"provider": "local", "external_id": "x" * 510, "title": "x" * 510, "media_type": "game",
+                "provider_ids": {"local": "x" * 510}}
+    assert atlas.metadata({"request": {}, "candidate": selected}) == {}
+    assert gateway.calls == []
+
+
+def test_a_record_with_many_provider_ids_still_yields_a_valid_search_and_patch(atlas, monkeypatch):
+    """Atlas lists every namespace its sources claim (one record can exceed the host's 32), and its namespace rule
+    allows a leading '.', '-' or '_' the host refuses. One such record must not make the whole response invalid."""
+    claimed = {f"src{n:02d}": str(n) for n in range(40)}
+    record = {**GAME, "provider_ids": {**claimed, "steam": "620", "_odd": "1", "-dash": "2", "rawg": 4200,
+                                       "nothing": None, "many": ["1", "2"], "flag": True, "long": "9" * 600}}
+    Gateway(monkeypatch, routes={"/api/v2/games": {"status": 200, "data": {"results": [record]}},
+                                 "/games/" + GAME["id"]: {"status": 200, "data": record}})
+    search = atlas.search(work())
+    jsonschema.validate(search, RESPONSE_SCHEMA)
+    ids = search["candidates"][0]["provider_ids"]
+    assert len(ids) == 32 and ids["atlas"] == GAME["id"] and ids["rawg"] == "4200"
+    assert not {"_odd", "-dash", "nothing", "many", "flag", "long"} & set(ids)
+    meta = atlas.metadata({"request": {}, "candidate": SELECTED})
+    jsonschema.validate(meta, RESPONSE_SCHEMA)
+    assert meta["metadata"]["provider_ids"] == ids
