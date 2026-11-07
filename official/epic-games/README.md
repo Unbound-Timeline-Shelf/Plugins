@@ -110,6 +110,13 @@ Malformed expiry values retain an existing connection.
 Choose **Import games**. Inventory paging, playtime, catalogue lookup and host
 imports run as separate bounded steps. **Pause after this step**, closing the
 page or a failed request retains the checkpoint. **Resume import** continues it.
+An import started from this popup (or from Games → **Sync / import**, which opens it)
+is driven by the popup itself: closing it pauses that import at the last saved step;
+nothing keeps running on the server for it. **Connections → Sync now** and the personal
+autosync below run on the server instead, without the popup, and resume the same
+checkpoint. Handing the popup's own Import/Resume to that server-run workflow needs a
+public start/status bridge the host does not offer yet (host issue
+[#466](https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf/issues/466)).
 **Start new inventory** deliberately replaces the current checkpoint. Disconnect
 removes this user's saved tokens/checkpoint and keeps imported games.
 
