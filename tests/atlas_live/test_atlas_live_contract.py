@@ -521,6 +521,165 @@ def test_atlas_78_an_edit_of_one_entry_keeps_the_identity_of_every_other(plugin,
         assert all(after[name] != before[name] for name in after), "an older Atlas churns row ids"
 
 
+# --- Plugin API 1.1.20: partial and regional dates, platinum, aliases (contracts C5.3, C2.6, C7) -----------------
+
+NEW_PATCH_FIELDS = {"first_release", "releases", "identity"}
+
+
+def details(plugin, atlas_id):
+    result = plugin.metadata({"request": {}, "candidate": selected(plugin, atlas_id)})
+    assert "failure" not in result, result
+    jsonschema.validate(result, RESPONSE_SCHEMA)
+    return result["metadata"]
+
+
+def atlas_view(atlas_api, seeded, cid):
+    return atlas_api.ok("GET", f"/games/{cid}", seeded.read_token)
+
+
+def atlas_dates(atlas_api, seeded):
+    """Whether the Atlas under test serves partial dates (Atlas contract C5, programme/a14 and later)."""
+    return "first_release" in atlas_view(atlas_api, seeded, seeded.ids["starlight"])
+
+
+def observe_dated(atlas_api, seeded, external_id, title, release, **fields):
+    """An observation carrying `ext.release`, or None when the Atlas under test predates it and refuses it."""
+    status, payload = atlas_api.request("POST", "/observations", seeded.admin_token, {
+        "connection": {"source_kind": "plugin", "source": "steamlike", "source_scope": "live-contract"},
+        "media_type": "game",
+        "observations": [{"external_id": external_id, "title": title, "ext": {"release": release}, **fields}]})
+    if not atlas_dates(atlas_api, seeded):
+        assert status == 422 or (200 <= status < 300 and payload["results"][0].get("error")), (status, payload)
+        return None
+    assert 200 <= status < 300, (status, payload)
+    return payload["results"][0]["atlas"]["canonical_id"]
+
+
+def test_partial_and_regional_release_dates_reach_the_host_at_their_precision(plugin, gateway, atlas_api, seeded):
+    """C5.3: a month stays a month and a year a year; the regional entries are forwarded as Atlas serves them."""
+    release = {"first": {"date": "2015-03", "precision": "month"},
+               "entries": [{"date": "2015-09", "precision": "month", "platform": "ps4", "region": "eu",
+                            "category": "full"},
+                           {"date": "2016", "precision": "year", "platform": "switch", "region": "jp",
+                            "edition": "Complete Edition", "category": "full"},
+                           {"date": "2014-11-20", "precision": "day", "platform": "pc", "region": "ww",
+                            "category": "beta"}]}
+    cid = observe_dated(atlas_api, seeded, "D-1", "Dated Lantern", release, edition="Complete Edition")
+    if cid is None:  # an Atlas before contract C5 refuses the dated observation; nothing partial reaches the host
+        return
+    view = atlas_view(atlas_api, seeded, cid)
+    assert view["first_release"] == {"date": "2015-03", "precision": "month"} and view.get("release_date") is None
+    meta = details(plugin, cid)
+    assert meta["first_release"] == {"date": "2015-03", "precision": "month"}
+    assert "release_date" not in meta, "a month is never sent as a day"
+    assert meta["year"] == 2015
+    assert meta["releases"] == [{key: value for key, value in entry.items() if value is not None}
+                                for entry in view["releases"]]
+    assert {(e["date"], e["precision"], e.get("region")) for e in meta["releases"]} == {
+        ("2015-09", "month", "eu"), ("2016", "year", "jp"), ("2014-11-20", "day", "ww")}
+    [hit] = [c for c in plugin.search(work(query="dated lantern"))["candidates"] if c["external_id"] == cid]
+    assert hit["year"] == 2015
+
+
+def test_a_day_first_release_also_travels_as_the_legacy_day(plugin, gateway, atlas_api, seeded):
+    meta = details(plugin, seeded.ids["starlight"])
+    assert meta["release_date"] == "2021-03-12" and meta["year"] == 2021
+    if atlas_dates(atlas_api, seeded):
+        assert meta["first_release"] == {"date": "2021-03-12", "precision": "day"}
+
+
+def test_a_curator_year_lock_is_sent_as_a_year_not_as_1_january(plugin, gateway, atlas_api, seeded):
+    """Both cells: from contract C5 Atlas serves the lock as `first_release`; an older Atlas serves "2011" in the
+    day-only key, which the plugin reads as a year instead of sending it as a date the host would refuse."""
+    cid = atlas_api.observe(seeded.admin_token, "steamlike", "D-2", "Locked Year", "2011-04-19")
+    atlas_api.ok("PUT", f"/games/{cid}/locks/release_date", seeded.admin_token, {"value": "2011"})
+    meta = details(plugin, cid)
+    assert meta["first_release"] == {"date": "2011", "precision": "year"} and meta["year"] == 2011
+    assert "release_date" not in meta
+
+
+def test_a_releases_lock_is_forwarded_as_the_release_list(plugin, gateway, atlas_api, seeded):
+    cid = atlas_api.observe(seeded.admin_token, "steamlike", "D-3", "Locked Releases", "2018-06-01")
+    entries = [{"date": "2018-06-01", "precision": "day", "platform": "pc", "region": "ww", "category": "full"},
+               {"date": "2019", "precision": "year", "platform": "ps4", "region": "na", "category": "port"}]
+    if not atlas_dates(atlas_api, seeded):  # an older Atlas has no `releases` view key; nothing extra is sent
+        meta = details(plugin, cid)
+        assert "releases" not in meta and "first_release" not in meta and meta["release_date"] == "2018-06-01"
+        return
+    atlas_api.ok("PUT", f"/games/{cid}/locks/releases", seeded.admin_token, {"value": entries})
+    meta = details(plugin, cid)
+    assert meta["releases"] == entries
+    assert meta["release_date"] == "2018-06-01" and meta["first_release"] == {"date": "2018-06-01", "precision": "day"}
+
+
+def test_a_free_text_date_lock_sends_no_date_and_does_not_break_the_response(plugin, gateway, atlas_api, seeded):
+    """An older Atlas keeps a non-date `release_date` lock ("TBA") in its legacy key, which the previous plugin
+    forwarded as a date (the host refused the response) and parsed as a year (the action crashed). From contract
+    C5 Atlas refuses such a lock, so the record keeps its observed day."""
+    cid = atlas_api.observe(seeded.admin_token, "steamlike", "D-4", "Locked Soon", "2030-01-01")
+    status, _ = atlas_api.request("PUT", f"/games/{cid}/locks/release_date", seeded.admin_token, {"value": "TBA"})
+    if atlas_dates(atlas_api, seeded):
+        assert status == 400
+        assert details(plugin, cid)["release_date"] == "2030-01-01"
+        return
+    assert status == 200 and atlas_view(atlas_api, seeded, cid).get("release_date") == "TBA"
+    meta = details(plugin, cid)
+    assert not {"release_date", "first_release", "year"} & set(meta) and meta["title"] == "Locked Soon"
+    [hit] = [c for c in plugin.search(work(query="locked soon"))["candidates"] if c["external_id"] == cid]
+    assert hit["year"] is None
+
+
+def test_under_an_older_declared_contract_the_same_records_send_no_1_1_20_field(plugin, gateway, atlas_api, seeded,
+                                                                               monkeypatch):
+    """The feature switch, against the real Atlas: a 1.1.19 declaration gets only fields a 1.1.19 host knows."""
+    monkeypatch.setattr(plugin, "API_CONTRACT", (1, 1, 19))
+    cid = observe_dated(atlas_api, seeded, "D-5", "Older Contract",
+                        {"first": {"date": "2012-07", "precision": "month"},
+                         "entries": [{"date": "2012-07", "precision": "month", "region": "ww", "category": "full"}]})
+    for atlas_id in filter(None, (cid, seeded.ids["starlight"])):
+        meta = details(plugin, atlas_id)
+        assert not NEW_PATCH_FIELDS & set(meta), sorted(meta)
+    if cid is not None:
+        assert details(plugin, cid)["year"] == 2012 and "release_date" not in details(plugin, cid)
+
+
+def test_platinum_is_passed_through_only_under_plugin_api_1_1_20(plugin, gateway, atlas_api, seeded, monkeypatch):
+    cid = atlas_api.observe(seeded.admin_token, "steamlike", "P-1", "Platinum Peak", "2022-02-02")
+    items = [{"name": "Every Summit", "tier": "platinum", "external_id": "plat"},
+             {"name": "Base Camp", "tier": "bronze", "external_id": "base"}]
+    status, _ = atlas_api.request("PUT", f"/games/{cid}/achievements", seeded.admin_token, {"items": items})
+    if status != 200:  # an Atlas before contract C7 (so also before C5) has no platinum tier and refuses the list
+        assert status in (400, 422) and not atlas_dates(atlas_api, seeded), status
+        return
+    served = {e["name"]: e["tier"] for e in atlas_api.ok("GET", f"/games/{cid}/achievements", seeded.read_token)["results"]}
+    assert served == {"Every Summit": "platinum", "Base Camp": "bronze"}
+    got, _ = catalogue(plugin, cid)
+    assert {i["name"]: i.get("tier") for i in got} == {"Every Summit": "platinum", "Base Camp": "bronze"}
+    monkeypatch.setattr(plugin, "API_CONTRACT", (1, 1, 19))
+    older, _ = catalogue(plugin, cid)
+    assert {i["name"]: i.get("tier") for i in older} == {"Every Summit": None, "Base Camp": "bronze"}
+    assert [i["external_id"] for i in older] == [i["external_id"] for i in got], "the identity does not depend on it"
+
+
+def test_a_merged_achievement_sends_its_other_keys_as_aliases(plugin, gateway, atlas_api, seeded, monkeypatch):
+    """C2.4/C2.6: two sources list the same achievement; Atlas merges them into one entry with both keys. The
+    anchor (min of the keys) is the external_id and the other key rides as an alias, so the host keeps the stored
+    definition when the anchor moves."""
+    cid = atlas_api.observe(seeded.admin_token, "steamlike", "AL-1", "Alias Harbor", "2023-03-03")
+    atlas_api.ok("PUT", f"/games/{cid}/achievements", seeded.admin_token,
+                 {"items": [{"name": "Shared Goal", "tier": "gold"}, {"name": "Curator Only"}]})
+    assert atlas_api.provider_achievements(cid, "gogish", [{"name": "Shared Goal", "external_id": "G-1"}]) == 1
+    rows = {e["name"]: e for e in atlas_api.ok("GET", f"/games/{cid}/achievements", seeded.read_token)["results"]}
+    shared = rows["Shared Goal"]
+    assert len(shared["keys"]) == 2 and shared["key"] == min(shared["keys"])
+    got = {i["name"]: i for i in catalogue(plugin, cid)[0]}
+    assert got["Shared Goal"]["external_id"] == shared["key"]
+    assert got["Shared Goal"]["aliases"] == [k for k in shared["keys"] if k != shared["key"]]
+    assert "aliases" not in got["Curator Only"]
+    monkeypatch.setattr(plugin, "API_CONTRACT", (1, 1, 19))
+    assert all("aliases" not in item for item in catalogue(plugin, cid)[0])
+
+
 # --- artwork -------------------------------------------------------------------------------------------------
 
 def test_media_lists_only_cached_artwork_under_the_public_media_path(plugin, gateway, seeded):
