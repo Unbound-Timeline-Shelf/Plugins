@@ -152,6 +152,10 @@ a distribution input.
 Official features and examples use the same SDK, package validator, permission
 review and sandbox. [Jellyfin's official preview](official/jellyfin-media-sync/README.md)
 starts at 0.0.1 with a separate identity; the original Jellyfin package stays a demo.
+[Plex Media Sync](official/plex-media-sync/README.md) and
+[Emby Media Sync](official/emby-media-sync/README.md) are unreleased 0.1.0 previews
+(Plugin API 1.1.20): a personal Connections entry syncs watch state, progress and a
+"Watch in Plex/Emby" link through host-run, resumable steps. They share one engine.
 `catalogue.json.unreleased_plugins` explicitly keeps previews outside signed
 publication until reviewed signer scope exists. Development builds still include
 and fully validate every maintained source, including unreleased previews.
