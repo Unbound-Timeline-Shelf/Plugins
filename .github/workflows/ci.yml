@@ -503,7 +503,7 @@ jobs:
       - run: python tools/check_host_contract.py --host-root .validation/host
         if: needs.gate.outputs.full_tests == 'true'
       # The Atlas plugin's real responses, held to the host's own validator under both contract declarations.
-      - run: python tools/check_metadata_atlas_host.py --host-root .validation/host
+      - run: python tools/check_metadata_atlas_host.py --host-root .validation/host --require-decision
         if: needs.gate.outputs.full_tests == 'true'
       - name: Select existing mobile PWA source ref
         if: needs.gate.outputs.full_tests == 'true'

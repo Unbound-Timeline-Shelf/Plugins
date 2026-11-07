@@ -759,15 +759,9 @@ def test_a_resolved_record_reports_atlas_reason_as_the_match(atlas, monkeypatch,
     assert out["metadata"]["identity"] == {"match": reason or method}
 
 
-def test_a_resolved_redirect_names_the_id_atlas_followed(atlas, monkeypatch):
-    live = {**GAME, "id": OTHER}
-    out, _ = lookup(atlas, monkeypatch, resolved("redirect", "crosswalk", canonical=OTHER, game=live,
-                                                 redirected_from=GAME["id"]))
-    assert out["metadata"]["identity"] == {"match": "redirect", "previous_ids": {"atlas": GAME["id"]}}
-
-
-@pytest.mark.parametrize("moved", [None, "not-an-atlas-id", OTHER])
-def test_a_resolved_redirect_without_a_usable_previous_id_names_none(atlas, monkeypatch, moved):
+@pytest.mark.parametrize("moved", [GAME["id"], None, "not-an-atlas-id", OTHER])
+def test_a_resolved_redirect_names_no_previous_id(atlas, monkeypatch, moved):
+    """`/resolve` runs only when the host holds no Atlas id, so the id Atlas followed is not one the host holds."""
     live = {**GAME, "id": OTHER}
     out, _ = lookup(atlas, monkeypatch, resolved("redirect", "crosswalk", canonical=OTHER, game=live,
                                                  redirected_from=moved))

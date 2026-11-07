@@ -577,11 +577,10 @@ def resolve_match(values, selected):
     if not adopted(result):
         return None, None
     game = result.get("game")
-    # An Atlas without `reason` (before C4) names the match in `method` (`crosswalk` or `exact`).
-    match = result.get("reason") or result.get("method")
-    moved = result.get("redirected_from") if match == "redirect" else None
-    game_id = game.get("id") if isinstance(game, dict) else None
-    return game, identity_verdict(match, moved if moved != game_id else None)
+    # An Atlas without `reason` (before C4) names the match in `method` (`crosswalk` or `exact`). `/resolve` runs
+    # only for a candidate without an Atlas id, so a `redirected_from` here is not an id the host holds and is not
+    # sent as `previous_ids` (C4.4 rule 2 names the game's current id there).
+    return game, identity_verdict(result.get("reason") or result.get("method"))
 
 
 def locate(values, selected):

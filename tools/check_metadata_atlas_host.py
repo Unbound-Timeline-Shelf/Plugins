@@ -170,13 +170,15 @@ def check_relations(host, declared: str, current: dict[str, Any], older: dict[st
     return problems
 
 
-def check_identity(host, declared: str, current: dict[str, Any], older: dict[str, Any]) -> list[str]:
+def check_identity(host, declared: str, current: dict[str, Any], older: dict[str, Any],
+                   require_decision: bool = False) -> list[str]:
     """C4.4 rule 2: the host's own refresh decision (`refresh_match.classify`, fed by `provider_identities` after
     `confine_to_namespaces`, as a refresh runs them) follows the merged Atlas id from the plugin's patch, and the
     1.1.19 patch carries no identity (the host keeps the saved id there, as before).
 
-    `refresh_match` imports SQLAlchemy, which this repository's requirements do not install: without it the check
-    stops after the host's own `provider_identities` and says so (the decision itself is then not exercised)."""
+    `refresh_match` imports SQLAlchemy (asyncio), which `requirements-dev.txt` installs. Without it the check stops
+    after the host's own `provider_identities` and says so; with `require_decision` (as CI runs it) that is a
+    failure, since the decision itself was then not exercised."""
     try:
         from src.features.metadata.namespaces import confine_to_namespaces
         from src.features.metadata.provider_reports import provider_identities
@@ -194,16 +196,21 @@ def check_identity(host, declared: str, current: dict[str, Any], older: dict[str
     patch = confine_to_namespaces(parsed, {plugin_id, "atlas"}).metadata
     identities = provider_identities({"k": SimpleNamespace(metadata={plugin_id: patch})}, ["k"], [plugin_id])
     verdict = identities.get(plugin_id) or {}
-    if verdict.get("match") != "redirect" or verdict.get("previous_ids") != {"atlas": GAME_ID}             or patch.provider_ids.get("atlas") != live:
+    followed = verdict.get("match") == "redirect" and verdict.get("previous_ids") == {"atlas": GAME_ID}
+    if not followed or patch.provider_ids.get("atlas") != live:
         return problems + [f"identity: the host reads {identities} and atlas id {patch.provider_ids.get('atlas')}, "
                            f"expected a redirect from {GAME_ID} to {live}"]
     try:
         from src.features.game_identity import refresh_match
-    except ModuleNotFoundError as exc:
-        if exc.name != "sqlalchemy":
+    except ImportError as exc:
+        # SQLAlchemy itself, or its asyncio extra (greenlet), is missing
+        if (exc.name or "").split(".")[0] not in {"sqlalchemy", "greenlet"} and "greenlet" not in str(exc):
             raise
-        print(f"identity: the host reads a redirect from {GAME_ID} to {live}; its refresh decision was NOT run "
-              "(SQLAlchemy is not installed here)")
+        skipped = (f"identity: the host reads a redirect from {GAME_ID} to {live}; its refresh decision was NOT run "
+                   f"(SQLAlchemy with asyncio is not installed here: {exc})")
+        if require_decision:
+            return problems + [skipped]
+        print(skipped)
         return problems
     decision = refresh_match.classify({"atlas": GAME_ID}, {plugin_id: dict(patch.provider_ids)},
                                       game_title="Synthetic", reported_title=patch.title, identities=identities)
@@ -219,6 +226,8 @@ def check_identity(host, declared: str, current: dict[str, Any], older: dict[str
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--host-root", required=True, type=Path)
+    parser.add_argument("--require-decision", action="store_true",
+                        help="fail when the host's refresh decision cannot run (SQLAlchemy missing)")
     args = parser.parse_args()
     sys.path.insert(0, str(args.host_root / "src/backend"))
     from pydantic import ValidationError
@@ -267,7 +276,7 @@ def main() -> int:
     print(f"validated {len(current)} responses at {declared} and 1.1.19 against host Plugin API "
           f"{PLUGIN_API_CONTRACT_VERSION}; {new_seen} carry 1.1.20 fields")
     problems += check_relations(host, declared, current, older)
-    problems += check_identity(host, declared, current, older)
+    problems += check_identity(host, declared, current, older, args.require_decision)
 
     registry = args.host_root / "src/backend/src/plugin_api/vocab.py"
     if registry.exists():
