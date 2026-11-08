@@ -36,9 +36,23 @@ running. A plain `pytest` skips `tests/atlas_live` (one skip, with the reason) b
 The `atlas-live-contract` job in `.github/workflows/ci.yml` runs when `official/metadata-atlas`,
 `tests/atlas_live`, `tools/check_metadata_atlas_live.py` or any shared file changes. Atlas is a private
 repository, so the job needs the repository secret `ATLAS_CHECKOUT_TOKEN` (a read-only token with contents
-access to `obsoletelabs/unnamed_tracking_metadata`); until it is configured the job is skipped with a visible
-warning and a job summary (it does not pass silently), and once it is set any failure fails the job. It builds Atlas at the revision pinned in the job's `ATLAS_REF` (override with the `atlas_ref`
-dispatch input). Bump the pin deliberately; the lane is how you learn what a newer Atlas breaks.
+access to `obsoletelabs/unnamed_tracking_metadata`). It builds Atlas at the revision pinned in the job's
+`ATLAS_REF` (override with the `atlas_ref` dispatch input). Bump the pin deliberately; the lane is how you
+learn what a newer Atlas breaks.
+
+The job fails closed, so its status is never ambiguous:
+
+| Run | Secret | `atlas-live-contract` shows |
+|---|---|---|
+| Push, same-repository pull request, dispatch | configured | the real result of the contract suite |
+| Push, same-repository pull request, dispatch | missing | **failed**, with the error annotation "Live Atlas contract lane did not run" and a job summary saying the failure is a missing credential, not a contract regression |
+| Pull request from a fork | never available | **skipped** (excluded at job level; never shown as passed) |
+| Change not selected by `tools/ci_changes.py` | any | skipped |
+
+No step after the credential check is conditional on it, so a green check always means the suite ran.
+`tests/test_atlas_live_ci_job.py` runs the job's credential step with and without a token and fails if a
+later step is gated on it again. Because GitHub counts a skipped job as passing a required check, making
+this job required would not cover fork pull requests; that is a branch-protection decision.
 
 ## What it covers
 
