@@ -83,3 +83,13 @@ def test_the_contract_suite_step_is_unconditional():
 
 def test_fork_pull_requests_are_excluded_at_job_level():
     assert "github.event.pull_request.head.repo.fork != true" in _job()["if"]
+
+
+def test_failures_are_not_swallowed_by_continue_on_error():
+    # `continue-on-error: true` on the job, the credential step or the suite step would turn a failed run into
+    # a green check, which is the same "success without running" this module exists to prevent.
+    assert "continue-on-error" not in _job(), f"{JOB} must not set continue-on-error at job level"
+    for step in _job()["steps"]:
+        assert "continue-on-error" not in step, (
+            f"step {step.get('name') or step.get('uses')} sets continue-on-error, which can hide a failed run"
+        )

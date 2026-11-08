@@ -51,7 +51,8 @@ The job fails closed, so its status is never ambiguous:
 
 No step after the credential check is conditional on it, so a green check always means the suite ran.
 `tests/test_atlas_live_ci_job.py` runs the job's credential step with and without a token and fails if a
-later step is gated on it again. Because GitHub counts a skipped job as passing a required check, making
+later step is gated on it again, or if the job or any of its steps sets `continue-on-error`, which would
+also turn a failed run green. Because GitHub counts a skipped job as passing a required check, making
 this job required would not cover fork pull requests; that is a branch-protection decision.
 
 ## What it covers
