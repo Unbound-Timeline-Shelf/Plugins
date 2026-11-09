@@ -406,6 +406,30 @@ def test_ci_rejects_rewriting_historical_release_metadata(checkout):
         validate_immutable_history(root, root, "HEAD")
 
 
+def test_ci_checks_baseline_catalogue_releases_against_history_files(checkout):
+    """A baseline whose history was only embedded in list.json is still preserved."""
+    root, env = checkout
+    run_build(root, env, "--publish")
+    commit(root, "chore: publish release")
+    history_path = root / "releases/example.help-button.json"
+    subprocess.run(
+        ["git", "-C", str(root), "rm", "-q", "--cached", str(history_path)],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(root), "commit", "-q", "-m", "chore: legacy baseline"],
+        check=True,
+        capture_output=True,
+    )
+    validate_immutable_history(root, root, "HEAD")
+    data = json.loads(history_path.read_text(encoding="utf-8"))
+    data["releases"][0]["release_notes"] = "Changed historical notes"
+    history_path.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match="baseline catalogue release"):
+        validate_immutable_history(root, root, "HEAD")
+
+
 def test_ci_rejects_source_and_catalogue_removal_even_with_retained_history(checkout):
     root, env = checkout
     run_build(root, env, "--publish")

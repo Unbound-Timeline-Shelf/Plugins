@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 import subprocess
+import sys
 import zipfile
 from pathlib import Path
 from urllib.parse import urlparse
@@ -24,6 +25,40 @@ DEFAULT_BASE = (
     "https://raw.githubusercontent.com/Unbound-Timeline-Shelf/Plugins/main"
 )
 RETIREMENT_FILE = "retired_plugins.json"
+# list.json is a lean index. The entry itself is the complete latest record;
+# ``releases`` lists every published version as a summary carrying only what
+# existing consumers read: the host's catalogue model (version, hashes, update
+# policy, notes) and the host's contract-upgrade acceptance, which selects a
+# historical release by ``manifest.api_contract_version`` and opens
+# ``package.filename``. A summary's ``manifest`` is the compatibility subset in
+# CATALOGUE_MANIFEST_FIELDS; permissions, capabilities, UI, README, icon,
+# signing and build provenance live only in the complete append-only records in
+# releases/<plugin-id>.json, linked through ``release_history``.
+CATALOGUE_RELEASE_FIELDS = (
+    "version",
+    "sha256",
+    "package_sha256",
+    "automatic_update",
+    "release_notes",
+    "manifest",
+    "package",
+)
+# The compatibility subset of a release manifest kept in each summary row.
+# Fields absent from a release's manifest stay absent (an absent
+# api_contract_version still means 1.0.0).
+CATALOGUE_MANIFEST_FIELDS = (
+    "manifest_version",
+    "plugin_id",
+    "version",
+    "api_contract_version",
+    "sdk_version_range",
+    "application_version_range",
+    "dependencies",
+)
+MAX_CATALOGUE_BYTES = 4 * 1024 * 1024
+# Warn (and fail CI tests, never publication) once list.json is within this
+# margin of the host's bound, so the remedy lands long before the hard limit.
+CATALOGUE_HEADROOM_BYTES = 1024 * 1024
 
 
 def canonical_json(value: object) -> bytes:
@@ -275,6 +310,28 @@ def load_retired_plugins(root: Path) -> set[str]:
     return set(ids)
 
 
+def history_document(plugin_id: str, history: list[dict]) -> dict:
+    """The standalone, append-only release-history file for one plugin."""
+    return {"version": 1, "plugin_id": plugin_id, "releases": history}
+
+
+def history_path(plugin_id: str) -> str:
+    return f"releases/{plugin_id}.json"
+
+
+def release_history_link(plugin_id: str, history: list[dict], base: str) -> dict:
+    """Bind a catalogue entry to the exact bytes of its complete history file."""
+    path = history_path(plugin_id)
+    return {
+        "path": path,
+        "url": base + "/" + path,
+        "count": len(history),
+        "sha256": hashlib.sha256(
+            canonical_json(history_document(plugin_id, history))
+        ).hexdigest(),
+    }
+
+
 def load_histories(root: Path) -> dict[str, list[dict]]:
     """Load retained release records and reject mismatched file identities."""
     histories = {}
@@ -474,10 +531,23 @@ def catalogue_release(release: dict, base: str) -> dict:
     return {**release, "url": base + "/dist/" + release["package"]["filename"]}
 
 
+def catalogue_release_summary(release: dict, base: str) -> dict:
+    """The compact per-version row embedded in list.json ``releases``."""
+    row = {field: release[field] for field in CATALOGUE_RELEASE_FIELDS}
+    row["manifest"] = catalogue_manifest_summary(release["manifest"])
+    row["url"] = base + "/dist/" + release["package"]["filename"]
+    return row
+
+
+def catalogue_manifest_summary(manifest: dict) -> dict:
+    """The compatibility subset of a release manifest kept in its summary row."""
+    return {key: manifest[key] for key in CATALOGUE_MANIFEST_FIELDS if key in manifest}
+
+
 def catalogue_document(
     root: Path, plugins: list[tuple[Path, dict]], histories: dict[str, list[dict]]
 ) -> dict:
-    """List maintained sources with their exact latest package and full release history."""
+    """List maintained sources: the latest full record, a summary of every release and a history link."""
     config_path = root / "catalogue.json"
     config = (
         json.loads(config_path.read_text(encoding="utf-8"))
@@ -519,7 +589,10 @@ def catalogue_document(
                     "lifecycle": "source",
                     "manifest_version": source_manifest["manifest_version"],
                 },
-                "releases": [catalogue_release(r, base) for r in history],
+                "releases": [catalogue_release_summary(r, base) for r in history],
+                "release_history": release_history_link(
+                    source_manifest["plugin_id"], history, base
+                ),
             }
         )
     return {"version": 1, "name": config["name"], "plugins": entries}
@@ -636,9 +709,16 @@ def validate_distribution(
     catalogue_path = output / "list.json"
     # The v1.1.1 host bounds decoded catalogue downloads to 4 MiB. Fail before
     # publication instead of producing an endpoint it cannot consume.
-    if catalogue_path.stat().st_size > 4 * 1024 * 1024:
+    if catalogue_path.stat().st_size > MAX_CATALOGUE_BYTES:
         raise ValueError(
             "catalogue exceeds the current Plugin Manager's 4 MiB download limit"
+        )
+    if catalogue_path.stat().st_size > MAX_CATALOGUE_BYTES - CATALOGUE_HEADROOM_BYTES:
+        # Early warning only: publication continues until the hard limit above.
+        print(
+            "::warning::list.json is within 1 MiB of the host's 4 MiB catalogue "
+            "limit; see 'Lean index' in wiki/docs/catalogue-specification.md",
+            file=sys.stderr,
         )
     catalogue = json.loads(catalogue_path.read_text(encoding="utf-8"))
     if catalogue != catalogue_document(
@@ -688,10 +768,20 @@ def validate_distribution(
         history = histories[entry["plugin_id"]]
         base = configured_base
         validate_url(base)
-        expected = [catalogue_release(r, base) for r in history]
-        if entry["releases"] != expected:
+        if entry["releases"] != [catalogue_release_summary(r, base) for r in history]:
             raise ValueError("catalogue release history mismatch")
-        for key, value in expected[-1].items():
+        link = release_history_link(entry["plugin_id"], history, base)
+        if entry.get("release_history") != link:
+            raise ValueError("catalogue release history link mismatch")
+        history_file = output / link["path"]
+        if (
+            not history_file.is_file()
+            or hashlib.sha256(history_file.read_bytes()).hexdigest() != link["sha256"]
+        ):
+            raise ValueError(
+                f"release history file does not match catalogue: {link['path']}"
+            )
+        for key, value in catalogue_release(history[-1], base).items():
             if entry[key] != value:
                 raise ValueError(f"catalogue latest {key} mismatch")
         manifest = entry["manifest"]
@@ -732,9 +822,8 @@ def validate_immutable_history(
     )
     if baseline_catalogue.returncode:
         raise ValueError("cannot read baseline catalogue")
-    previous_ids = {
-        entry["plugin_id"] for entry in json.loads(baseline_catalogue.stdout)["plugins"]
-    }
+    baseline_entries = json.loads(baseline_catalogue.stdout)["plugins"]
+    previous_ids = {entry["plugin_id"] for entry in baseline_entries}
     current_ids = {
         entry["plugin_id"]
         for entry in json.loads((output / "list.json").read_bytes())["plugins"]
@@ -795,6 +884,33 @@ def validate_immutable_history(
                 or current["releases"][: len(old["releases"])] != old["releases"]
             ):
                 raise ValueError(f"historical release metadata changed: {name}")
+    # Older catalogues embedded complete records; newer ones embed summaries.
+    # Either way, every release a baseline catalogue advertised must survive
+    # unchanged in the standalone history file that holds the complete records.
+    for entry in baseline_entries:
+        retained = {
+            record["version"]: record for record in histories.get(entry["plugin_id"], [])
+        }
+        for advertised in entry.get("releases", []):
+            record = retained.get(advertised.get("version"))
+            if record is None or any(
+                not _advertised_matches(k, v, record) for k, v in advertised.items()
+            ):
+                raise ValueError(
+                    "baseline catalogue release is missing from or changed in "
+                    f"{history_path(entry['plugin_id'])}: {advertised.get('version')}"
+                )
+
+
+def _advertised_matches(key: str, value: object, record: dict) -> bool:
+    """Whether one advertised release field agrees with the complete history record."""
+    if key == "url":
+        return True  # deployment-specific, not part of the history record
+    if key == "manifest" and isinstance(value, dict):
+        # Full records carry the whole manifest; summaries carry a subset of it.
+        manifest = record.get("manifest") or {}
+        return all(k in manifest and manifest[k] == v for k, v in value.items())
+    return record.get(key) == value
 
 
 def main() -> None:
