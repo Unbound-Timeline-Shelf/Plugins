@@ -17,8 +17,8 @@ from tools.distribution import (
 
 def test_checked_in_catalogue_summarises_every_release_and_links_complete_history():
     catalogue_bytes = (ROOT / "list.json").read_bytes()
-    # Keep generous headroom under the host's download bound as plugins grow.
-    assert len(catalogue_bytes) < MAX_CATALOGUE_BYTES // 2
+    # Keep at least 1 MiB of headroom under the host's download bound.
+    assert len(catalogue_bytes) < MAX_CATALOGUE_BYTES - 1024 * 1024
     catalogue = json.loads(catalogue_bytes)
     histories = load_histories(ROOT)
     for entry in catalogue["plugins"]:

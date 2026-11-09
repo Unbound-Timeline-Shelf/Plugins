@@ -25,16 +25,20 @@ DEFAULT_BASE = (
 )
 RETIREMENT_FILE = "retired_plugins.json"
 # list.json is a lean index. The entry itself is the complete latest record;
-# ``releases`` lists every published version as a compact summary carrying only
-# what hosts read to offer and bind a catalogue install of that version. The
-# complete append-only records (manifest, README, build provenance...) live in
-# releases/<plugin-id>.json, which every entry links through ``release_history``.
+# ``releases`` lists every published version as a summary carrying only what
+# existing consumers read: the host's catalogue model (version, hashes, update
+# policy, notes) and the host's contract-upgrade acceptance, which selects a
+# historical release by ``manifest`` and opens ``package.filename``. README,
+# icon, signing and build provenance live only in the complete append-only
+# records in releases/<plugin-id>.json, linked through ``release_history``.
 CATALOGUE_RELEASE_FIELDS = (
     "version",
     "sha256",
     "package_sha256",
     "automatic_update",
     "release_notes",
+    "manifest",
+    "package",
 )
 MAX_CATALOGUE_BYTES = 4 * 1024 * 1024
 

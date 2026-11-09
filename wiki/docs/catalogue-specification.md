@@ -73,12 +73,13 @@ publisher-namespaced; do not silently replace an ID with unrelated code.
 
 `releases` is ordered by numeric SemVer, oldest first, with unique versions, and
 its last element is the current release. Each element is a summary with exactly
-`version`, `url`, `sha256`, `package_sha256`, `automatic_update` and
-`release_notes` (`CATALOGUE_RELEASE_FIELDS` in `tools/distribution.py`): what a
-host needs to list a version and bind a catalogue install to its package hashes.
-The full release record (identity, manifest, package/signing/publisher
-information, README/icon/tags, lifecycle and build provenance) is the entry
-itself for the current release and is in the history file for every release.
+`version`, `url`, `sha256`, `package_sha256`, `automatic_update`,
+`release_notes`, `manifest` and `package` (`CATALOGUE_RELEASE_FIELDS` in
+`tools/distribution.py`): what a host needs to list a version, bind a catalogue
+install to its package hashes, and judge that release's own compatibility and
+scopes. The full release record (also signing/publisher information,
+README/icon/tags, lifecycle and build provenance) is the entry itself for the
+current release and is in the history file for every release.
 Current entry values mirror the final release, not the authoring manifest's
 placeholder digest. A release-level manifest contains its compatibility,
 capabilities, permissions and dependencies; never use today's
@@ -99,11 +100,12 @@ Older catalogues embedded the full record for every historical release in every
 entry. Each record repeats its manifest and README, so the official `list.json`
 grew by tens of kilobytes per release until it approached the host's download
 bound. The catalogue now embeds one full record per plugin (the current entry)
-plus a summary of well under 1 KB per version. Packages stay published,
+plus a summary of a few kilobytes per version. Packages stay published,
 immutable and downloadable at their URLs.
 
 Hosts released before this change keep working without the removed fields:
-their catalogue model reads only the summary fields from each release and
+their catalogue model and acceptance tools read only summary fields from each
+release and
 ignores the additive `release_history` field. They discover updates from the
 current entry, build their version picker from `releases`, install any listed
 historical version (bound to its summary's hashes), and roll back from locally
