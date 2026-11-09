@@ -30,9 +30,12 @@ the current implementation.
   trusted signatures, satisfied dependencies, no newly requested scopes and release
   policy permitting it. A false policy in the signed `distribution.json` payload
   also blocks automatic activation. Later releases can opt in independently.
-* `releases` describes published distribution history. The host's rollback UI uses
-  its retained local packages; the catalogue does not grant execution, permissions
-  or automatic selection of historical versions.
+* `releases` lists the newest published versions (see the release window below).
+  The host offers those versions in its version picker and binds a catalogue
+  install of a non-current version to that list. Update discovery uses only the
+  current entry, and the rollback UI uses the host's retained local packages; the
+  catalogue does not grant execution, permissions or automatic selection of
+  historical versions.
 
 ## Authoritative fields
 
@@ -65,9 +68,11 @@ publisher-namespaced; do not silently replace an ID with unrelated code.
 | `lifecycle`, `lifecycle_stages` | Built preview or published snapshot; recorded distribution stages |
 | `build` | Source digest/commit/path/time, builder, contract revision, version-bump reason and legacy flag |
 | `source` | Current authoring directory, source stage and manifest schema version |
-| `releases` | Complete ordered history of this plugin's distributed versions |
+| `releases` | The newest (at most 3) distributed versions, ending with the current release |
+| `release_history` | Link to the complete history file: `path`, absolute `url`, record `count` and file `sha256` |
 
-`releases` is ordered by numeric SemVer, oldest first, with unique versions. Each
+`releases` is ordered by numeric SemVer, oldest first, with unique versions, and
+its last element is the current release. Each
 element is a full release record with identity, version, URL, manifest, both
 hashes, package/signing/publisher information, README/icon/tags, notes, policy,
 lifecycle and build provenance. Current entry values mirror the final release,
@@ -76,20 +81,43 @@ its compatibility, capabilities, permissions and dependencies; never use today's
 permissions/compatibility for an old release.
 
 Standalone `releases/<plugin-id>.json` has `{version: 1, plugin_id, releases}` with
-the same records excluding deployment-specific URLs. Those files retain histories
-for retired plugins too. They are useful release assets/audit records; consumers
-do not need to reverse-engineer GitHub commit history. `list.json` embeds the full
-history for current plugins so update discovery needs one catalogue fetch.
+the same records excluding deployment-specific URLs. These files are the complete,
+append-only history and retain histories for retired plugins too; consumers do
+not need to reverse-engineer GitHub commit history. A record's package URL is
+`<base_url>/dist/<package.filename>`, the same location pattern as the entry's
+`url`. Each current catalogue entry links its file through `release_history`,
+whose `sha256` covers the exact published file bytes, so a client that wants
+older versions makes one extra, verifiable fetch.
+
+### Release window
+
+`list.json` is a lean index. Each entry embeds only its newest
+**3** release records (`CATALOGUE_RELEASE_WINDOW` in `tools/distribution.py`):
+the current release plus two manual-downgrade candidates. Embedding every
+historical record made the official catalogue grow by tens of kilobytes per
+release (each record carries its manifest and README) until it approached the
+host's download bound; with the window, size grows with the number of plugins,
+not with their release count. Three keeps a useful version picker on hosts that
+only read `releases` while leaving room for roughly three times today's plugin
+count. Older versions stay published, immutable and downloadable at their URLs,
+and remain listed in the history file.
+
+Hosts released before this change keep working without the removed records:
+they ignore the additive `release_history` field, discover updates from the
+current entry, build their version picker from `releases`, and roll back from
+locally retained packages.
 
 The checked-in list and release files are executable examples of this complete
 shape. Generate them with the tools rather than transcribing a partial JSON
 example and accidentally omitting hashes or release snapshots.
 
-The targeted host limits decoded catalogue JSON to **1 MiB**. Generation validates
-that limit before publication. For a large collection, distribute plugin groups
-through separate configured catalogues. Do not truncate a plugin's historical
-records to meet the cap; if one complete history grows beyond the limit, the host
-download contract needs an explicit update before publishing that larger list.
+The current host limits decoded catalogue JSON to **4 MiB**. Generation validates
+that limit before publication; do not raise it in the generator. For a very large
+collection, distribute plugin groups through separate configured catalogues.
+Never delete or rewrite history files to meet the cap: CI's baseline check
+requires every release that the previous `list.json` advertised, whether embedded
+completely (older catalogues) or within the window, to remain unchanged in
+`releases/<plugin-id>.json`, and every existing history file to keep its prefix.
 
 ## Integrity and historical compatibility
 

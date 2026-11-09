@@ -12,13 +12,13 @@ from pathlib import Path
 
 
 try:
-    from .distribution import ROOT, canonical_json, collect_payload, discover_plugins, generate_catalogue, git, import_history, load_histories, next_release, release_record, source_digest, validate_distribution, write_json
+    from .distribution import ROOT, canonical_json, collect_payload, discover_plugins, generate_catalogue, git, history_document, history_path, import_history, load_histories, next_release, release_record, source_digest, validate_distribution, write_json
     from .package_format import canonical_payload_digest, signature_envelope, signature_message, SIGNATURE_ENVELOPE
     from .signing import select_signer
     from .validate_packages import validate_package
     from .verify_packages import verify_package
 except ImportError:
-    from distribution import ROOT, canonical_json, collect_payload, discover_plugins, generate_catalogue, git, import_history, load_histories, next_release, release_record, source_digest, validate_distribution, write_json
+    from distribution import ROOT, canonical_json, collect_payload, discover_plugins, generate_catalogue, git, history_document, history_path, import_history, load_histories, next_release, release_record, source_digest, validate_distribution, write_json
     from package_format import canonical_payload_digest, signature_envelope, signature_message, SIGNATURE_ENVELOPE
     from signing import select_signer
     from validate_packages import validate_package
@@ -107,7 +107,7 @@ def build(root: Path, output: Path, *, publish: bool = False, catalogue_only: bo
                     verify_package(stage / "dist" / history[-1]["package"]["filename"], require_signature=True)
                 resolved.append((source / "manifest.json", manifest))
         for plugin_id, history in histories.items():
-            write_json(stage / "releases" / f"{plugin_id}.json", {"version": 1, "plugin_id": plugin_id, "releases": history})
+            write_json(stage / history_path(plugin_id), history_document(plugin_id, history))
         generate_catalogue(root, stage, plugins, histories)
         validate_distribution(stage, source_root=root, check_source=not catalogue_only,
                               include_unreleased=not publish and not catalogue_only)

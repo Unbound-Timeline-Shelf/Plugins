@@ -24,6 +24,13 @@ DEFAULT_BASE = (
     "https://raw.githubusercontent.com/Unbound-Timeline-Shelf/Plugins/main"
 )
 RETIREMENT_FILE = "retired_plugins.json"
+# list.json is a bounded index: each entry embeds only its newest releases. The
+# complete append-only history lives in releases/<plugin-id>.json, which every
+# entry links through ``release_history``. Three records keep the latest release
+# plus two manual-downgrade candidates for hosts that only read ``releases``,
+# while keeping the catalogue far below the host's 4 MiB download bound.
+CATALOGUE_RELEASE_WINDOW = 3
+MAX_CATALOGUE_BYTES = 4 * 1024 * 1024
 
 
 def canonical_json(value: object) -> bytes:
@@ -275,6 +282,28 @@ def load_retired_plugins(root: Path) -> set[str]:
     return set(ids)
 
 
+def history_document(plugin_id: str, history: list[dict]) -> dict:
+    """The standalone, append-only release-history file for one plugin."""
+    return {"version": 1, "plugin_id": plugin_id, "releases": history}
+
+
+def history_path(plugin_id: str) -> str:
+    return f"releases/{plugin_id}.json"
+
+
+def release_history_link(plugin_id: str, history: list[dict], base: str) -> dict:
+    """Bind a catalogue entry to the exact bytes of its complete history file."""
+    path = history_path(plugin_id)
+    return {
+        "path": path,
+        "url": base + "/" + path,
+        "count": len(history),
+        "sha256": hashlib.sha256(
+            canonical_json(history_document(plugin_id, history))
+        ).hexdigest(),
+    }
+
+
 def load_histories(root: Path) -> dict[str, list[dict]]:
     """Load retained release records and reject mismatched file identities."""
     histories = {}
@@ -477,7 +506,7 @@ def catalogue_release(release: dict, base: str) -> dict:
 def catalogue_document(
     root: Path, plugins: list[tuple[Path, dict]], histories: dict[str, list[dict]]
 ) -> dict:
-    """List maintained sources with their exact latest package and full release history."""
+    """List maintained sources with their latest package, recent releases and a history link."""
     config_path = root / "catalogue.json"
     config = (
         json.loads(config_path.read_text(encoding="utf-8"))
@@ -519,7 +548,13 @@ def catalogue_document(
                     "lifecycle": "source",
                     "manifest_version": source_manifest["manifest_version"],
                 },
-                "releases": [catalogue_release(r, base) for r in history],
+                "releases": [
+                    catalogue_release(r, base)
+                    for r in history[-CATALOGUE_RELEASE_WINDOW:]
+                ],
+                "release_history": release_history_link(
+                    source_manifest["plugin_id"], history, base
+                ),
             }
         )
     return {"version": 1, "name": config["name"], "plugins": entries}
@@ -636,7 +671,7 @@ def validate_distribution(
     catalogue_path = output / "list.json"
     # The v1.1.1 host bounds decoded catalogue downloads to 4 MiB. Fail before
     # publication instead of producing an endpoint it cannot consume.
-    if catalogue_path.stat().st_size > 4 * 1024 * 1024:
+    if catalogue_path.stat().st_size > MAX_CATALOGUE_BYTES:
         raise ValueError(
             "catalogue exceeds the current Plugin Manager's 4 MiB download limit"
         )
@@ -688,9 +723,22 @@ def validate_distribution(
         history = histories[entry["plugin_id"]]
         base = configured_base
         validate_url(base)
-        expected = [catalogue_release(r, base) for r in history]
+        expected = [
+            catalogue_release(r, base) for r in history[-CATALOGUE_RELEASE_WINDOW:]
+        ]
         if entry["releases"] != expected:
             raise ValueError("catalogue release history mismatch")
+        link = release_history_link(entry["plugin_id"], history, base)
+        if entry.get("release_history") != link:
+            raise ValueError("catalogue release history link mismatch")
+        history_file = output / link["path"]
+        if (
+            not history_file.is_file()
+            or hashlib.sha256(history_file.read_bytes()).hexdigest() != link["sha256"]
+        ):
+            raise ValueError(
+                f"release history file does not match catalogue: {link['path']}"
+            )
         for key, value in expected[-1].items():
             if entry[key] != value:
                 raise ValueError(f"catalogue latest {key} mismatch")
@@ -732,9 +780,8 @@ def validate_immutable_history(
     )
     if baseline_catalogue.returncode:
         raise ValueError("cannot read baseline catalogue")
-    previous_ids = {
-        entry["plugin_id"] for entry in json.loads(baseline_catalogue.stdout)["plugins"]
-    }
+    baseline_entries = json.loads(baseline_catalogue.stdout)["plugins"]
+    previous_ids = {entry["plugin_id"] for entry in baseline_entries}
     current_ids = {
         entry["plugin_id"]
         for entry in json.loads((output / "list.json").read_bytes())["plugins"]
@@ -795,6 +842,20 @@ def validate_immutable_history(
                 or current["releases"][: len(old["releases"])] != old["releases"]
             ):
                 raise ValueError(f"historical release metadata changed: {name}")
+    # Older catalogues embedded complete histories; newer ones embed a window.
+    # Either way, every release a baseline catalogue advertised must survive
+    # unchanged in the standalone history file that replaces embedded history.
+    for entry in baseline_entries:
+        retained = {
+            record["version"]: record for record in histories.get(entry["plugin_id"], [])
+        }
+        for advertised in entry.get("releases", []):
+            record = {k: v for k, v in advertised.items() if k != "url"}
+            if retained.get(record.get("version")) != record:
+                raise ValueError(
+                    "baseline catalogue release is missing from or changed in "
+                    f"{history_path(entry['plugin_id'])}: {record.get('version')}"
+                )
 
 
 def main() -> None:
