@@ -1,4 +1,4 @@
-"""The catalogue is a bounded index; complete histories live in releases/*.json."""
+"""The catalogue is a lean index; complete release records live in releases/*.json."""
 
 import hashlib
 import json
@@ -7,7 +7,7 @@ import shutil
 import pytest
 
 from tools.distribution import (
-    CATALOGUE_RELEASE_WINDOW,
+    CATALOGUE_RELEASE_FIELDS,
     MAX_CATALOGUE_BYTES,
     ROOT,
     load_histories,
@@ -15,13 +15,12 @@ from tools.distribution import (
 )
 
 
-def test_checked_in_catalogue_embeds_window_and_links_complete_history():
+def test_checked_in_catalogue_summarises_every_release_and_links_complete_history():
     catalogue_bytes = (ROOT / "list.json").read_bytes()
     # Keep generous headroom under the host's download bound as plugins grow.
     assert len(catalogue_bytes) < MAX_CATALOGUE_BYTES // 2
     catalogue = json.loads(catalogue_bytes)
     histories = load_histories(ROOT)
-    truncated = 0
     for entry in catalogue["plugins"]:
         history = histories[entry["plugin_id"]]
         link = entry["release_history"]
@@ -29,18 +28,21 @@ def test_checked_in_catalogue_embeds_window_and_links_complete_history():
         assert link["url"].endswith("/" + link["path"])
         assert link["count"] == len(history)
         assert link["sha256"] == hashlib.sha256((ROOT / link["path"]).read_bytes()).hexdigest()
-        # Hosts that only read `releases` still see the current release last,
-        # matching the entry, followed by the newest manual-downgrade candidates.
-        assert 1 <= len(entry["releases"]) <= CATALOGUE_RELEASE_WINDOW
-        assert entry["releases"][-1]["version"] == entry["version"]
-        assert entry["releases"][-1]["url"] == entry["url"]
-        assert [
-            {k: v for k, v in r.items() if k != "url"} for r in entry["releases"]
-        ] == history[-CATALOGUE_RELEASE_WINDOW:]
-        for release in entry["releases"]:
-            assert release["url"].endswith("/dist/" + release["package"]["filename"])
-        truncated += len(history) > CATALOGUE_RELEASE_WINDOW
-    assert truncated, "fixture data should exercise a history longer than the window"
+        # Every published version stays installable from the catalogue on
+        # existing hosts: they read exactly these fields per release and require
+        # the last one to agree with the current entry.
+        assert [r["version"] for r in entry["releases"]] == [r["version"] for r in history]
+        for summary, record in zip(entry["releases"], history, strict=True):
+            assert set(summary) == {*CATALOGUE_RELEASE_FIELDS, "url"}
+            assert summary["url"].endswith("/dist/" + record["package"]["filename"])
+            for field in CATALOGUE_RELEASE_FIELDS:
+                assert summary[field] == record[field]
+        latest = entry["releases"][-1]
+        assert (latest["version"], latest["url"], latest["sha256"], latest["package_sha256"]) == (
+            entry["version"], entry["url"], entry["sha256"], entry["package_sha256"]
+        )
+        # The entry itself remains the complete latest record.
+        assert entry["manifest"] == history[-1]["manifest"]
 
 
 def candidate(tmp_path):

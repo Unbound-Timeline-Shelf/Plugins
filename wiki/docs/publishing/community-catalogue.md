@@ -98,8 +98,8 @@ GitHub users commit/push the generated package, history, list and resolved sourc
 versions together. GitHub Releases can distribute those same artifacts. Do not
 advertise packages before their URLs resolve or overwrite an older version.
 The current host limits catalogue JSON to 4 MiB; generation enforces this.
-`list.json` embeds only each plugin's newest 3 releases and links the complete
-`releases/<plugin-id>.json` history, so its size follows the number of plugins.
+`list.json` embeds one full record per plugin plus a compact summary per version
+and links the complete `releases/<plugin-id>.json` history.
 Split very large collections into separate catalogues without deleting history.
 
 ## 5. Register the catalogue and review trust separately

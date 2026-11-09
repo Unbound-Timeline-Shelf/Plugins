@@ -24,12 +24,18 @@ DEFAULT_BASE = (
     "https://raw.githubusercontent.com/Unbound-Timeline-Shelf/Plugins/main"
 )
 RETIREMENT_FILE = "retired_plugins.json"
-# list.json is a bounded index: each entry embeds only its newest releases. The
-# complete append-only history lives in releases/<plugin-id>.json, which every
-# entry links through ``release_history``. Three records keep the latest release
-# plus two manual-downgrade candidates for hosts that only read ``releases``,
-# while keeping the catalogue far below the host's 4 MiB download bound.
-CATALOGUE_RELEASE_WINDOW = 3
+# list.json is a lean index. The entry itself is the complete latest record;
+# ``releases`` lists every published version as a compact summary carrying only
+# what hosts read to offer and bind a catalogue install of that version. The
+# complete append-only records (manifest, README, build provenance...) live in
+# releases/<plugin-id>.json, which every entry links through ``release_history``.
+CATALOGUE_RELEASE_FIELDS = (
+    "version",
+    "sha256",
+    "package_sha256",
+    "automatic_update",
+    "release_notes",
+)
 MAX_CATALOGUE_BYTES = 4 * 1024 * 1024
 
 
@@ -503,6 +509,14 @@ def catalogue_release(release: dict, base: str) -> dict:
     return {**release, "url": base + "/dist/" + release["package"]["filename"]}
 
 
+def catalogue_release_summary(release: dict, base: str) -> dict:
+    """The compact per-version row embedded in list.json ``releases``."""
+    return {
+        **{field: release[field] for field in CATALOGUE_RELEASE_FIELDS},
+        "url": base + "/dist/" + release["package"]["filename"],
+    }
+
+
 def catalogue_document(
     root: Path, plugins: list[tuple[Path, dict]], histories: dict[str, list[dict]]
 ) -> dict:
@@ -548,10 +562,7 @@ def catalogue_document(
                     "lifecycle": "source",
                     "manifest_version": source_manifest["manifest_version"],
                 },
-                "releases": [
-                    catalogue_release(r, base)
-                    for r in history[-CATALOGUE_RELEASE_WINDOW:]
-                ],
+                "releases": [catalogue_release_summary(r, base) for r in history],
                 "release_history": release_history_link(
                     source_manifest["plugin_id"], history, base
                 ),
@@ -723,10 +734,7 @@ def validate_distribution(
         history = histories[entry["plugin_id"]]
         base = configured_base
         validate_url(base)
-        expected = [
-            catalogue_release(r, base) for r in history[-CATALOGUE_RELEASE_WINDOW:]
-        ]
-        if entry["releases"] != expected:
+        if entry["releases"] != [catalogue_release_summary(r, base) for r in history]:
             raise ValueError("catalogue release history mismatch")
         link = release_history_link(entry["plugin_id"], history, base)
         if entry.get("release_history") != link:
@@ -739,7 +747,7 @@ def validate_distribution(
             raise ValueError(
                 f"release history file does not match catalogue: {link['path']}"
             )
-        for key, value in expected[-1].items():
+        for key, value in catalogue_release(history[-1], base).items():
             if entry[key] != value:
                 raise ValueError(f"catalogue latest {key} mismatch")
         manifest = entry["manifest"]
@@ -842,19 +850,21 @@ def validate_immutable_history(
                 or current["releases"][: len(old["releases"])] != old["releases"]
             ):
                 raise ValueError(f"historical release metadata changed: {name}")
-    # Older catalogues embedded complete histories; newer ones embed a window.
+    # Older catalogues embedded complete records; newer ones embed summaries.
     # Either way, every release a baseline catalogue advertised must survive
-    # unchanged in the standalone history file that replaces embedded history.
+    # unchanged in the standalone history file that holds the complete records.
     for entry in baseline_entries:
         retained = {
             record["version"]: record for record in histories.get(entry["plugin_id"], [])
         }
         for advertised in entry.get("releases", []):
-            record = {k: v for k, v in advertised.items() if k != "url"}
-            if retained.get(record.get("version")) != record:
+            record = retained.get(advertised.get("version"))
+            if record is None or any(
+                record.get(k) != v for k, v in advertised.items() if k != "url"
+            ):
                 raise ValueError(
                     "baseline catalogue release is missing from or changed in "
-                    f"{history_path(entry['plugin_id'])}: {record.get('version')}"
+                    f"{history_path(entry['plugin_id'])}: {advertised.get('version')}"
                 )
 
 

@@ -124,7 +124,7 @@ Small references stay small; real demos document supported behavior and host lim
 | `releases/` | Append-only generated release metadata/history, including retired plugins |
 | `retired_plugins.json` | Reviewed retirement decisions; historical archives and release records stay immutable |
 | `catalogue.json` | Authored display name and HTTPS hosting base URL |
-| `list.json` | Generated current catalogue: latest 3 releases per plugin plus a link to its `releases/` history |
+| `list.json` | Generated current catalogue: latest full record plus a compact summary of every release, linking each `releases/` history |
 
 Development builds write isolated `.validation/` previews. Published packages
 and historical records remain unchanged. Do not manually edit generated lists,
