@@ -76,14 +76,19 @@ its last element is the current release. Each element is a summary with exactly
 `version`, `url`, `sha256`, `package_sha256`, `automatic_update`,
 `release_notes`, `manifest` and `package` (`CATALOGUE_RELEASE_FIELDS` in
 `tools/distribution.py`): what a host needs to list a version, bind a catalogue
-install to its package hashes, and judge that release's own compatibility and
-scopes. The full release record (also signing/publisher information,
+install to its package hashes, and pre-filter it by compatibility. A summary's
+`manifest` is only the compatibility subset of that release's manifest
+(`CATALOGUE_MANIFEST_FIELDS`: `manifest_version`, `plugin_id`, `version`,
+`api_contract_version`, `sdk_version_range`, `application_version_range` and
+`dependencies`, each present only if the full manifest has it; an absent
+`api_contract_version` still means `1.0.0`). The full release record (complete
+manifest with capabilities, permissions and UI, signing/publisher information,
 README/icon/tags, lifecycle and build provenance) is the entry itself for the
 current release and is in the history file for every release.
 Current entry values mirror the final release, not the authoring manifest's
-placeholder digest. A release-level manifest contains its compatibility,
-capabilities, permissions and dependencies; never use today's
-permissions/compatibility for an old release. Read it from the history file.
+placeholder digest. Never use today's permissions or compatibility for an old
+release: read that release's own complete manifest from the history file, and
+treat the package's signed manifest as authoritative at install time.
 
 Standalone `releases/<plugin-id>.json` has `{version: 1, plugin_id, releases}` with
 the same records excluding deployment-specific URLs. These files are the complete,
@@ -92,7 +97,12 @@ not need to reverse-engineer GitHub commit history. A record's package URL is
 `<base_url>/dist/<package.filename>`, the same location pattern as the entry's
 `url`. Each current catalogue entry links its file through `release_history`,
 whose `sha256` covers the exact published file bytes, so a client that wants
-older versions makes one extra, verifiable fetch.
+older versions makes one extra, verifiable fetch. `release_history.path` is
+authoritative and relative to the catalogue's `base_url`; `url` is a
+convenience built from that same base. The publish workflow also attaches the
+history files to the GitHub release as flat assets (`<plugin-id>.json`), so a
+mirror serving from release assets should resolve the file by `path` against
+its own layout and verify it with `sha256`, not trust `url`.
 
 ### Lean index
 
@@ -100,13 +110,22 @@ Older catalogues embedded the full record for every historical release in every
 entry. Each record repeats its manifest and README, so the official `list.json`
 grew by tens of kilobytes per release until it approached the host's download
 bound. The catalogue now embeds one full record per plugin (the current entry)
-plus a summary of a few kilobytes per version. Packages stay published,
-immutable and downloadable at their URLs.
+plus a summary of about 1 KB per version. Packages stay published, immutable
+and downloadable at their URLs.
+
+Size budget: the official list is about 0.8 MB, of which about 0.4 MB is the
+current entries and the rest grows by about 1 KB per release. Generation fails
+only above the host's 4 MiB limit; above 3 MiB it emits a CI warning
+(`CATALOGUE_HEADROOM_BYTES`), which leaves room for roughly a thousand further
+releases. When the warning appears, split plugin groups into separate
+catalogues; do not drop releases from `releases` (existing hosts install
+historical versions only from that list).
 
 Hosts released before this change keep working without the removed fields:
 their catalogue model and acceptance tools read only summary fields from each
-release and
-ignores the additive `release_history` field. They discover updates from the
+release (the contract-upgrade acceptance reads only
+`manifest.api_contract_version` and `package.filename`) and ignore the additive
+`release_history` field. They discover updates from the
 current entry, build their version picker from `releases`, install any listed
 historical version (bound to its summary's hashes), and roll back from locally
 retained packages. The host bounds `releases` to 256 versions per plugin.

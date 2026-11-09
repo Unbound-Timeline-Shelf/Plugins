@@ -7,8 +7,11 @@ import shutil
 import pytest
 
 from tools.distribution import (
+    CATALOGUE_HEADROOM_BYTES,
+    CATALOGUE_MANIFEST_FIELDS,
     CATALOGUE_RELEASE_FIELDS,
     MAX_CATALOGUE_BYTES,
+    _advertised_matches,
     ROOT,
     load_histories,
     validate_distribution,
@@ -17,8 +20,9 @@ from tools.distribution import (
 
 def test_checked_in_catalogue_summarises_every_release_and_links_complete_history():
     catalogue_bytes = (ROOT / "list.json").read_bytes()
-    # Keep at least 1 MiB of headroom under the host's download bound.
-    assert len(catalogue_bytes) < MAX_CATALOGUE_BYTES - 1024 * 1024
+    # The hard bound is the host's download limit. The headroom margin is only
+    # a publication warning, but the checked-in catalogue should sit well inside it.
+    assert len(catalogue_bytes) < MAX_CATALOGUE_BYTES - CATALOGUE_HEADROOM_BYTES
     catalogue = json.loads(catalogue_bytes)
     histories = load_histories(ROOT)
     for entry in catalogue["plugins"]:
@@ -36,7 +40,15 @@ def test_checked_in_catalogue_summarises_every_release_and_links_complete_histor
             assert set(summary) == {*CATALOGUE_RELEASE_FIELDS, "url"}
             assert summary["url"].endswith("/dist/" + record["package"]["filename"])
             for field in CATALOGUE_RELEASE_FIELDS:
-                assert summary[field] == record[field]
+                if field != "manifest":
+                    assert summary[field] == record[field]
+            # A summary manifest is the compatibility subset of the full one.
+            assert summary["manifest"] == {
+                k: record["manifest"][k] for k in CATALOGUE_MANIFEST_FIELDS if k in record["manifest"]
+            }
+            assert summary["manifest"].get("api_contract_version", "1.0.0") == record[
+                "manifest"
+            ].get("api_contract_version", "1.0.0")
         latest = entry["releases"][-1]
         assert (latest["version"], latest["url"], latest["sha256"], latest["package_sha256"]) == (
             entry["version"], entry["url"], entry["sha256"], entry["package_sha256"]
@@ -74,3 +86,22 @@ def test_rejects_catalogue_without_release_history_link(tmp_path):
     )
     with pytest.raises(ValueError, match="catalogue differs"):
         validate_distribution(root, source_root=root)
+
+
+def test_catalogue_size_grows_slowly_per_release():
+    catalogue = json.loads((ROOT / "list.json").read_bytes())
+    rows = [r for e in catalogue["plugins"] for r in e["releases"]]
+    row_bytes = sum(len(json.dumps(r, sort_keys=True, indent=2)) for r in rows) / len(rows)
+    # Rows no longer embed permissions/capabilities/UI, so thousands more
+    # releases fit before the publication warning margin.
+    assert row_bytes < 2048
+
+
+def test_baseline_comparison_accepts_full_or_summary_manifest_but_not_changes():
+    record = {"version": "1.0.0", "manifest": {"plugin_id": "a.b", "version": "1.0.0", "permissions": []}}
+    assert _advertised_matches("manifest", record["manifest"], record)
+    assert _advertised_matches("manifest", {"plugin_id": "a.b", "version": "1.0.0"}, record)
+    assert not _advertised_matches("manifest", {"plugin_id": "a.c"}, record)
+    assert not _advertised_matches("manifest", {"api_contract_version": "1.0.0"}, record)
+    assert _advertised_matches("url", "https://elsewhere/x.utp", record)
+    assert not _advertised_matches("version", "1.0.1", record)
