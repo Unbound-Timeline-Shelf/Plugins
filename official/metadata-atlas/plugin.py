@@ -562,14 +562,25 @@ def search(values):
     if media_type not in media_types():
         raise ProviderFailure("invalid_response")
     options = work.get("options") if isinstance(work.get("options"), dict) else {}
-    isbn = isbn13(options.get("isbn")) if media_type == "book" else None
-    if isbn and options.get("isbn") == isbn:
-        return {"candidates": isbn_lookup(values, isbn)}
+    if media_type == "book" and options.get("isbn") not in (None, ""):
+        # An ISBN option is always an identifier lookup (C15 6.2), never a title search. A hyphenated ISBN-13 or
+        # an ISBN-10 is normalised to its ISBN-13; one that is not a valid ISBN lists nothing.
+        isbn = lookup_isbn(options["isbn"])
+        return {"candidates": isbn_lookup(values, isbn) if isbn else []}
     query = urlencode({"q": work["query"], "limit": min(int(work.get("limit", 20)), 50), "type": media_type})
     data = call(values, "/games?" + query)
     return {"candidates": [candidate(record, media_type) for record in data.get("results", [])
                             if record.get("id") and record.get("title")
                             and record.get("media_type", media_type) == media_type]}
+
+
+def lookup_isbn(value):
+    """The ISBN-13 an `isbn` option names: a valid ISBN-13 or ISBN-10 (spaces and hyphens allowed), else None."""
+    found = isbn13(value)
+    if found:
+        return found
+    found = isbn10(value)
+    return isbn10_to_13(found) if found else None
 
 
 def isbn_lookup(values, isbn):

@@ -27,7 +27,8 @@ Use your own server, a LAN mirror or a public one; the plugin contacts only the 
   a book search reaches the plugin as the host's reserved `isbn` option (a normalised ISBN-13); it is an identifier
   lookup, not a title search: the plugin asks Atlas's `/resolve` for the `isbn` namespace (Atlas's ISBN crosswalk,
   C15 §2.5) and lists the one book that holds it, with `isbn_13` set. A conflict (two works claim the ISBN) or an
-  uncertain answer lists nothing. A book's metadata patch carries `book`:
+  uncertain answer lists nothing. An `isbn` option from another caller that is hyphenated or an ISBN-10 is normalised
+  to its ISBN-13 first; one that is not a valid ISBN lists nothing (never a title search). A book's metadata patch carries `book`:
   - `authors`: Atlas's ordered creator list with roles (at most 30; a role outside the shared `book_creator_role`
     vocabulary is sent as `contributor`), or the record's primary creator (`developer`) when Atlas has no list;
   - `subtitle`, `page_count`, `original_language`;

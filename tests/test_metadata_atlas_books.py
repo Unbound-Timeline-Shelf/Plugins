@@ -160,11 +160,28 @@ def test_an_isbn_lookup_without_a_certain_book_lists_nothing(atlas, monkeypatch,
     assert result == {"candidates": []}
 
 
-@pytest.mark.parametrize("options", [{"isbn": "9780000000003"}, {"isbn": 9780000000002}, {"isbn": "0000000000"}])
-def test_a_malformed_isbn_option_is_an_ordinary_title_search(atlas, monkeypatch, options):
+@pytest.mark.parametrize("raw", ["978-0-00-000001-9", " 978 0000000019 ", ISBN_B10, "0-00-000001-9"])
+def test_a_non_canonical_isbn_option_is_normalised_to_the_isbn_13_lookup(atlas, monkeypatch, raw):
+    gateway = Gateway(monkeypatch, routes={"/resolve": {"status": 200, "data": {"results": [
+        {"canonical_id": BOOK_ID, "reason": "crosswalk", "game": BOOK}]}}})
+    atlas.search({"request": {"query": raw, "media_type": "book", "options": {"isbn": raw}}})
+    assert len(gateway.calls) == 1
+    assert gateway.calls[0]["body"]["items"] == [{"provider_ids": {"isbn": ISBN_B13}, "media_type": "book"}]
+
+
+@pytest.mark.parametrize("options", [{"isbn": "9780000000003"}, {"isbn": 9780000000002}, {"isbn": "0000000001"},
+                                     {"isbn": "lighthouse"}, {"isbn": ["9780000000002"]}])
+def test_an_invalid_isbn_option_lists_nothing_and_never_runs_a_title_search(atlas, monkeypatch, options):
     gateway = Gateway(monkeypatch, routes={"/api/v2/games": {"status": 200, "data": {"results": [BOOK]}}})
     result = atlas.search({"request": {"query": "lighthouse", "media_type": "book", "options": options}})
-    assert "isbn_13" not in result["candidates"][0]
+    assert result == {"candidates": []}
+    assert gateway.calls == []
+
+
+@pytest.mark.parametrize("options", [{}, {"isbn": None}, {"isbn": ""}])
+def test_a_book_search_without_an_isbn_option_is_a_title_search(atlas, monkeypatch, options):
+    gateway = Gateway(monkeypatch, routes={"/api/v2/games": {"status": 200, "data": {"results": [BOOK]}}})
+    atlas.search({"request": {"query": "lighthouse", "media_type": "book", "options": options}})
     assert gateway.calls[0]["url"].split("?")[0].endswith("/api/v2/games")
 
 
