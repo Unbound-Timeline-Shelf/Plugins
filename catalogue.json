@@ -7,6 +7,7 @@
     "example.shortcut-playground",
     "example.story-notification-demo",
     "official.plex-media-sync",
-    "official.emby-media-sync"
+    "official.emby-media-sync",
+    "official.metadata-openlibrary"
   ]
 }
