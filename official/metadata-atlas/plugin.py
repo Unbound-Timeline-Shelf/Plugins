@@ -12,18 +12,10 @@ import vocab
 from sdk.metadata_provider import ProviderFailure, ProviderHttp, external_id, operation, provider_values, register
 
 PROVIDER_ID = "official.metadata-atlas.atlas"
-MEDIA_TYPES = ("game", "anime", "movie", "tv_show")
-DECLARATION = {
-    "provider_id": PROVIDER_ID, "name": "Atlas", "identifier_namespace": "atlas",
-    "media_types": list(MEDIA_TYPES),
-    "metadata_resources": ["entity", "achievements"],
-    "operations": {"search": "search", "metadata": "metadata", "media": "media", "health": "health"},
-    "configuration": [
-        {"key": "base_url", "label": "Atlas API URL", "scope": "both", "secret": False},
-        {"key": "public_base_url", "label": "Public Atlas URL (optional)", "scope": "both", "required": False, "secret": False},
-        {"key": "api_token", "label": "Atlas API token (read scope)", "scope": "both"},
-    ],
-}
+# Every media type this plugin can map. `book` needs the unified Plugin API contract (C15 6.3/6.4): under an older
+# declaration the plugin neither declares nor serves it (`media_types()`).
+MEDIA_TYPES = ("game", "anime", "movie", "tv_show", "book")
+BOOK_MEDIA_TYPES = frozenset({"book"})
 ASSET_KINDS = {"key_art", "banner", "logo", "icon", "screenshot", "hero", "poster"}
 ATLAS_ID = re.compile(r"^atlas:[0-9a-z]{26}$")
 # Contract C4.1: the only `/resolve` reasons a client may adopt as an identity. `conflict`, `type_mismatch`,
@@ -55,11 +47,38 @@ def declared_contract():
 
 
 API_CONTRACT = declared_contract()
+# The one Plugin API bump of this release (C15 6.4, C16): books joined 1.1.20 rather than taking 1.1.21, so every
+# gate in this plugin compares against the same constant.
+UNIFIED_CONTRACT = RELEASES_CONTRACT
 
 
 def sends_releases():
     """Whether the 1.1.20 fields and values may be sent. An unreadable declaration counts as older."""
-    return API_CONTRACT is not None and API_CONTRACT >= RELEASES_CONTRACT
+    return API_CONTRACT is not None and API_CONTRACT >= UNIFIED_CONTRACT
+
+
+def sends_books():
+    """Whether `book` may be declared, searched and sent (the `book` media type, `MetadataPatch.book`, a candidate's
+    `authors` and `isbn_13`). The same switch as the other 1.1.20 fields: the declared contract, never the host's."""
+    return sends_releases()
+
+
+def media_types():
+    """The media types this package serves under its declared contract."""
+    return MEDIA_TYPES if sends_books() else tuple(kind for kind in MEDIA_TYPES if kind not in BOOK_MEDIA_TYPES)
+
+
+DECLARATION = {
+    "provider_id": PROVIDER_ID, "name": "Atlas", "identifier_namespace": "atlas",
+    "media_types": list(media_types()),
+    "metadata_resources": ["entity", "achievements"],
+    "operations": {"search": "search", "metadata": "metadata", "media": "media", "health": "health"},
+    "configuration": [
+        {"key": "base_url", "label": "Atlas API URL", "scope": "both", "secret": False},
+        {"key": "public_base_url", "label": "Public Atlas URL (optional)", "scope": "both", "required": False, "secret": False},
+        {"key": "api_token", "label": "Atlas API token (read scope)", "scope": "both"},
+    ],
+}
 
 
 # C5.1 dates: "YYYY", "YYYY-MM" or "YYYY-MM-DD" (ASCII digits); the precision always equals the shape.
@@ -102,9 +121,9 @@ def call(values, path, **options):
     return data
 
 
-def partial_date(value, precision=None):
+def partial_date(value, precision=None, years=None):
     """``(value, precision)`` for a C5.1 date the host accepts, else None. Nothing is guessed or padded:
-    "2011" stays a year and is never sent as 1 January."""
+    "2011" stays a year and is never sent as 1 January. `years` overrides the host's year range (books)."""
     if not isinstance(value, str) or not PARTIAL_DATE.fullmatch(value):
         return None
     shape = DATE_SHAPES[len(value)]
@@ -115,7 +134,7 @@ def partial_date(value, precision=None):
             date.fromisoformat(value)
         except ValueError:
             return None
-    low, high = DAY_YEARS if shape == "day" else PARTIAL_YEARS
+    low, high = years or (DAY_YEARS if shape == "day" else PARTIAL_YEARS)
     return (value, shape) if low <= int(value[:4]) <= high else None
 
 
@@ -230,7 +249,7 @@ HOST_ID_LIMIT, HOST_ID_LENGTH = 32, 512
 # console stores it scopes by platform, then the anime, film and TV catalogues. Everything else follows, sorted.
 WELL_KNOWN_NAMESPACES = ("steam", "igdb", "gog", "epic", "rawg", "itch", "tgdb", "psn", "playstation", "xbox",
                          "microsoft", "nintendo", "anilist", "mal", "kitsu", "anidb", "tmdb", "imdb", "tvdb",
-                         "tvmaze")
+                         "tvmaze", "openlibrary", "isbn")
 NAMESPACE_RANK = {name: index for index, name in enumerate(WELL_KNOWN_NAMESPACES)}
 
 
@@ -260,10 +279,229 @@ def record_provider_ids(record):
     return ids
 
 
-def candidate(record, media_type="game"):
-    media_type = record.get("media_type") if record.get("media_type") in MEDIA_TYPES else media_type
+def candidate(record, media_type="game", isbn=None):
+    media_type = record.get("media_type") if record.get("media_type") in media_types() else media_type
+    if media_type == "book":
+        first = first_published(record)
+        year = int(first["date"][:4]) if first else None
+        out = {"provider": PROVIDER_ID, "external_id": record["id"], "title": record["title"],
+               "media_type": media_type, "provider_ids": record_provider_ids(record),
+               "year": year if year is not None and DAY_YEARS[0] <= year <= DAY_YEARS[1] else None}
+        names = [author["name"] for author in book_authors(record)]
+        if names:
+            out["authors"] = names
+        if isbn:
+            out["isbn_13"] = isbn
+        return out
     return {"provider": PROVIDER_ID, "external_id": record["id"], "title": record["title"],
             "media_type": media_type, "provider_ids": record_provider_ids(record), "year": release_year(record)}
+
+
+# --- books (C15 2.3-2.6 in Atlas, 6.3-6.5 in the host) ---------------------------------------------------------------
+# The host's `MetadataBook` bounds (Plugin API 1.1.20). A book date may be far older than C5.1's 1950 floor.
+BOOK_YEARS = (1000, 2100)
+MAX_BOOK_AUTHORS, MAX_BOOK_EDITIONS, MAX_BOOK_PAGES = 30, 50, 100_000
+MAX_AUTHOR_NAME, MAX_SUBTITLE, MAX_SERIES_NAME, MAX_SERIES_POSITION = 200, 300, 200, 16
+MAX_EDITION_TEXT, MAX_LANGUAGE, MAX_EDITION_KEY = 200, 16, 512
+# D15.12: Atlas's "Subjects" (the book type's label for `features`) become the host's genres up to this many; the
+# rest are tags.
+SUBJECT_GENRES = 10
+ISBN13 = re.compile(r"97[89]\d{10}", re.ASCII)
+ISBN10 = re.compile(r"\d{9}[\dX]", re.ASCII)
+ISBN_SEPARATORS = re.compile(r"[\s-]+")
+
+
+def _isbn13_check(first12):
+    total = sum(int(digit) * (1 if index % 2 == 0 else 3) for index, digit in enumerate(first12))
+    return str((10 - total % 10) % 10)
+
+
+def _isbn10_check(first9):
+    remainder = (11 - sum(int(digit) * (10 - index) for index, digit in enumerate(first9)) % 11) % 11
+    return "X" if remainder == 10 else str(remainder)
+
+
+def isbn13(value):
+    """A normalised ISBN-13 with a right check digit (spaces and hyphens removed), else None. Never repaired."""
+    if not isinstance(value, str):
+        return None
+    value = ISBN_SEPARATORS.sub("", value)
+    return value if ISBN13.fullmatch(value) and _isbn13_check(value[:12]) == value[12] else None
+
+
+def isbn10(value):
+    """A normalised ISBN-10 (upper-case ``X``) with a right check digit, else None."""
+    if not isinstance(value, str):
+        return None
+    value = ISBN_SEPARATORS.sub("", value).upper()
+    return value if ISBN10.fullmatch(value) and _isbn10_check(value[:9]) == value[9] else None
+
+
+def isbn10_to_13(value):
+    body = "978" + value[:9]
+    return body + _isbn13_check(body)
+
+
+def isbn_pair(raw13, raw10):
+    """``(isbn_13, isbn_10)`` of one edition as the host accepts them. An ISBN-10 alone gives its ISBN-13 (the same
+    normalisation Atlas and the host apply). An ISBN-10 that names another book than the ISBN-13 is left out, and a
+    present but invalid ISBN-13 leaves both out: the pair is not trusted, and nothing is guessed."""
+    found13, found10 = isbn13(raw13), isbn10(raw10)
+    if raw13 not in (None, "") and found13 is None:
+        return None, None
+    if found10 and found13 and isbn10_to_13(found10) != found13:
+        found10 = None
+    if found10 and not found13:
+        found13 = isbn10_to_13(found10)
+    return found13, found10
+
+
+def _line(value, limit):
+    """One printable line of at most `limit` characters (whitespace collapsed), else None."""
+    if not isinstance(value, str):
+        return None
+    text = " ".join(value.split())
+    return text if 0 < len(text) <= limit and text.isprintable() else None
+
+
+def _bounded_int(value, low, high):
+    return value if isinstance(value, int) and not isinstance(value, bool) and low <= value <= high else None
+
+
+def book_date(value, precision=None):
+    found = partial_date(value, precision, BOOK_YEARS)
+    return {"date": found[0], "precision": found[1]} if found else None
+
+
+def first_published(record):
+    """The work's first publication (Atlas `first_release`, C5 `ext.release.first`) at its real precision, in the
+    host's book years; an Atlas without `first_release` gives its legacy `release_date` (a day or a curator lock)."""
+    first = record.get("first_release")
+    if isinstance(first, dict):
+        return book_date(first.get("date"), first.get("precision"))
+    if first is None:
+        return book_date(record.get("release_date"))
+    return None
+
+
+def book_authors(record):
+    """The ordered creator list (Atlas view `authors`, C15 2.3), else the single primary creator `developer`.
+
+    An entry is ``{"name", "role"}`` or a plain name. Names are one printable line; a role outside the shared
+    vocabulary (a newer Atlas) is sent as `contributor`, which is true of every creator, rather than dropped or
+    passed through. Duplicates keep the first; at most 30."""
+    raw = record.get("authors")
+    out, seen = [], set()
+    for item in raw if isinstance(raw, list) else []:
+        name, role = (item, None) if isinstance(item, str) else (
+            (item.get("name"), item.get("role")) if isinstance(item, dict) else (None, None))
+        name = _line(name, MAX_AUTHOR_NAME)
+        if name is None:
+            continue
+        role = "author" if role in (None, "") else (role if role in vocab.BOOK_CREATOR_ROLES else "contributor")
+        if (name.casefold(), role) in seen:
+            continue
+        seen.add((name.casefold(), role))
+        out.append({"name": name, "role": role})
+        if len(out) == MAX_BOOK_AUTHORS:
+            break
+    if not out:
+        developer = _line(record.get("developer"), MAX_AUTHOR_NAME)
+        if developer:
+            out.append({"name": developer, "role": "author"})
+    return out
+
+
+def book_series(record):
+    """``(series_name, series_position)``: the `series_member` relation and its `position` (C15 2.4), else the
+    `series` hint (``{"name", "position"}``) or plain series name of an older view. Unusable parts are left out."""
+    block = record.get("relations")
+    members = block.get("members_of") if isinstance(block, dict) else None
+    for item in members if isinstance(members, list) else []:
+        if isinstance(item, dict) and item.get("type") == "series_member":
+            name = _line(item.get("title"), MAX_SERIES_NAME)
+            if name:
+                return name, _line(item.get("position"), MAX_SERIES_POSITION)
+    hint = record.get("series")
+    if isinstance(hint, dict):
+        name = _line(hint.get("name"), MAX_SERIES_NAME)
+        return name, (_line(hint.get("position"), MAX_SERIES_POSITION) if name else None)
+    return _line(hint, MAX_SERIES_NAME), None
+
+
+def book_edition(entry):
+    """One entry of Atlas's `editions[]` view (C15 2.6) as the host's `MetadataBookEdition`, or None when nothing
+    usable is left. `key` is the source's edition id (`provider_ids.openlibrary_edition`)."""
+    if not isinstance(entry, dict):
+        return None
+    ids = entry.get("provider_ids") if isinstance(entry.get("provider_ids"), dict) else {}
+    found13, found10 = isbn_pair(entry.get("isbn_13") if entry.get("isbn_13") is not None else ids.get("isbn"),
+                                 entry.get("isbn_10"))
+    key = ids.get("openlibrary_edition")
+    published = entry.get("published")
+    out = {
+        "key": key if isinstance(key, str) and 0 < len(key) <= MAX_EDITION_KEY and key.isprintable() else None,
+        "name": _line(entry.get("name"), MAX_EDITION_TEXT),
+        "isbn_13": found13, "isbn_10": found10,
+        "format": entry.get("format") if entry.get("format") in vocab.BOOK_FORMATS else None,
+        "publisher": _line(entry.get("publisher"), MAX_EDITION_TEXT),
+        "publish_date": book_date(published.get("date"), published.get("precision"))
+        if isinstance(published, dict) else None,
+        "page_count": _bounded_int(entry.get("pages"), 1, MAX_BOOK_PAGES),
+        "language": _line(entry.get("language"), MAX_LANGUAGE),
+    }
+    out = {name: value for name, value in out.items() if value is not None}
+    return out or None
+
+
+def book_editions(record):
+    """Atlas's editions in its order, at most 50. The host refuses a work whose editions repeat an ISBN-13 (#265
+    3.2); Atlas collapses those, and a repeat that still arrives keeps the first edition."""
+    raw = record.get("editions")
+    out, seen = [], set()
+    for entry in raw if isinstance(raw, list) else []:
+        edition = book_edition(entry)
+        if edition is None or edition.get("isbn_13") in seen:
+            continue
+        if "isbn_13" in edition:
+            seen.add(edition["isbn_13"])
+        out.append(edition)
+        if len(out) == MAX_BOOK_EDITIONS:
+            break
+    return out
+
+
+def book_subjects(record):
+    """Atlas's subjects: the book type's `features` (C15 2.3), or `subjects` from a view that names them so."""
+    raw = record.get("features")
+    return texts(raw if isinstance(raw, list) and raw else record.get("subjects"), 128, 128)
+
+
+def book_fields(record, matched_isbn=None):
+    """`MetadataPatch.book` (Plugin API 1.1.20) for one Atlas book record (C15 6.5).
+
+    `matched_isbn` is the ISBN-13 the candidate was found by: it is named as the work's `isbn_13` (with that
+    edition's ISBN-10) only when the record itself lists it."""
+    editions = book_editions(record)
+    series_name, series_position = book_series(record)
+    out = {
+        "authors": book_authors(record),
+        "subtitle": _line(record.get("subtitle"), MAX_SUBTITLE),
+        "page_count": _bounded_int(record.get("page_count"), 1, MAX_BOOK_PAGES),
+        "series_name": series_name,
+        "series_position": series_position if series_name else None,
+        "original_language": _line(record.get("original_language"), MAX_LANGUAGE),
+        "first_published": first_published(record),
+        "editions": editions,
+    }
+    matched = isbn13(matched_isbn)
+    if matched:
+        edition = next((item for item in editions if item.get("isbn_13") == matched), None)
+        ids = record.get("provider_ids") if isinstance(record.get("provider_ids"), dict) else {}
+        if edition is not None or isbn13(ids.get("isbn")) == matched:
+            out["isbn_13"] = matched
+            out["isbn_10"] = (edition or {}).get("isbn_10")
+    return {name: value for name, value in out.items() if value not in (None, "", [])}
 
 
 # Contract C6.2/C6.4: Atlas's relations block (GET /games/{id}, Atlas A15) as MetadataPatch.relations for a game.
@@ -321,13 +559,35 @@ def game_relations(record):
 def search(values):
     work = values["request"]
     media_type = work.get("media_type", "game")
-    if media_type not in MEDIA_TYPES:
+    if media_type not in media_types():
         raise ProviderFailure("invalid_response")
+    options = work.get("options") if isinstance(work.get("options"), dict) else {}
+    isbn = isbn13(options.get("isbn")) if media_type == "book" else None
+    if isbn and options.get("isbn") == isbn:
+        return {"candidates": isbn_lookup(values, isbn)}
     query = urlencode({"q": work["query"], "limit": min(int(work.get("limit", 20)), 50), "type": media_type})
     data = call(values, "/games?" + query)
     return {"candidates": [candidate(record, media_type) for record in data.get("results", [])
                             if record.get("id") and record.get("title")
                             and record.get("media_type", media_type) == media_type]}
+
+
+def isbn_lookup(values, isbn):
+    """The reserved `isbn` option (C15 6.2): an identifier lookup, never a title search. Atlas answers it through
+    its `isbn` crosswalk (C15 2.5, a variant key per edition ISBN), so `/resolve` names the one work that holds the
+    ISBN. A conflict (two works claim it), an uncertain answer or another media type lists nothing."""
+    data = call(values, "/resolve", method="POST", body={
+        "items": [{"provider_ids": {"isbn": isbn}, "media_type": "book"}], "include_view": True})
+    results = data.get("results")
+    result = results[0] if isinstance(results, list) and results and isinstance(results[0], dict) else {}
+    if result.get("reason") == "conflict" or result.get("conflict"):
+        report_conflict(result)
+        return []
+    record = result.get("game")
+    if not adopted(result) or not isinstance(record, dict) or record.get("media_type") != "book" \
+            or not record.get("title"):
+        return []
+    return [candidate(record, "book", isbn)]
 
 
 def texts(value, limit, size):
@@ -384,10 +644,10 @@ def _join_texts(value, limit, size, total):
     return ", ".join(out)
 
 
-def patch(record):
+def patch(record, matched_isbn=None):
     """Map Atlas's type-labelled fields to the app's provider-neutral media contract."""
     media_type = record.get("media_type", "game")
-    if media_type not in MEDIA_TYPES:
+    if media_type not in media_types():
         return {}
     custom = _custom(record)
     title = record.get("title")
@@ -435,6 +695,18 @@ def patch(record):
         out["tags"] = texts(tags + (record.get("features") or []), 128, 128)
         if record.get("series"):
             out["custom"] = {**out["custom"], "franchise": record["series"]}
+    elif media_type == "book":
+        # C15 6.5. The creator list, series, editions and the first publication travel in `book`; `developer`,
+        # `publisher` and `series` are the game fields and are not sent. Subjects: genres first, then tags (D15.12).
+        book = book_fields(record, matched_isbn)
+        subjects = book_subjects(record)
+        out["genres"] = texts(out["genres"] + subjects[:SUBJECT_GENRES], 128, 128)
+        out["tags"] = texts(out["tags"] + subjects[SUBJECT_GENRES:], 128, 128)
+        first = book.get("first_published")
+        year = int(first["date"][:4]) if first else None
+        if year is not None and DAY_YEARS[0] <= year <= DAY_YEARS[1]:
+            out["year"] = year
+        out["book"] = book
     else:  # tv_show
         out["creators"] = texts([record.get("developer")], 64, 512)
         network = texts([record.get("publisher")], 1, 256)
@@ -821,7 +1093,7 @@ def with_relations(values, record):
 def metadata(values):
     selected = values["candidate"]
     media_type = selected.get("media_type", "game")
-    if media_type not in MEDIA_TYPES:
+    if media_type not in media_types():
         return {}
     record, verdict = locate_match(values, selected)
     if not record or not record.get("title"):
@@ -830,10 +1102,11 @@ def metadata(values):
         if media_type != "game":
             return {}
         return achievement_catalogue(values, record, achievement_cursor(values["request"]))
-    if media_type == "game" and sends_releases() and "relations" not in record \
+    # a book's series (its `series_member` relation and position, C15 2.4) also travels in the relations block
+    if media_type in {"game", "book"} and sends_releases() and "relations" not in record \
             and not external_id(selected, PROVIDER_ID, "atlas"):
         record = with_relations(values, record)
-    result = patch(record)
+    result = patch(record, selected.get("isbn_13") if media_type == "book" else None)
     if verdict and result:
         # C4.4: how the record was found, and the merged-away id the host should follow (rule 2)
         result["identity"] = verdict
@@ -852,7 +1125,7 @@ def media(values):
     """Artwork Atlas has already downloaded and verified, served from its public /media path."""
     selected = values["candidate"]
     media_type = selected.get("media_type", "game")
-    if media_type not in MEDIA_TYPES:
+    if media_type not in media_types():
         return {"assets": []}
     record = locate(values, selected)
     identity = record and record.get("id")

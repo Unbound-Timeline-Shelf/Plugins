@@ -72,7 +72,8 @@
         "game",
         "movie",
         "tv_show",
-        "anime"
+        "anime",
+        "book"
       ],
       "title": "MediaType",
       "type": "string"
@@ -323,6 +324,338 @@
       "title": "MetadataAiring",
       "type": "object"
     },
+    "MetadataBook": {
+      "additionalProperties": false,
+      "description": "What a book provider knows about a work (Plugin API 1.1.20, C15 6.3).\n\n``isbn_13``/``isbn_10`` name the edition the lookup matched (an ISBN search), if any. The\nhost keeps ``authors`` as its ordered author names; ``series_*`` stay plain fields (#265 9).",
+      "properties": {
+        "authors": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/MetadataBookAuthor"
+          },
+          "maxItems": 30,
+          "title": "Authors",
+          "type": "array"
+        },
+        "subtitle": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subtitle"
+        },
+        "isbn_13": {
+          "anyOf": [
+            {
+              "maxLength": 13,
+              "minLength": 13,
+              "pattern": "^97[89]\\d{10}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Isbn 13"
+        },
+        "isbn_10": {
+          "anyOf": [
+            {
+              "maxLength": 10,
+              "minLength": 10,
+              "pattern": "^\\d{9}[\\dX]$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Isbn 10"
+        },
+        "page_count": {
+          "anyOf": [
+            {
+              "maximum": 100000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Count"
+        },
+        "series_name": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Series Name"
+        },
+        "series_position": {
+          "anyOf": [
+            {
+              "maxLength": 16,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Series Position"
+        },
+        "original_language": {
+          "anyOf": [
+            {
+              "maxLength": 16,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Original Language"
+        },
+        "first_published": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MetadataBookDate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "editions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/MetadataBookEdition"
+          },
+          "maxItems": 50,
+          "title": "Editions",
+          "type": "array"
+        }
+      },
+      "title": "MetadataBook",
+      "type": "object"
+    },
+    "MetadataBookAuthor": {
+      "additionalProperties": false,
+      "description": "One creator of a work, in the provider's order (C15 2.3 ``authors[]``).",
+      "properties": {
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "role": {
+          "default": "author",
+          "enum": [
+            "author",
+            "editor",
+            "translator",
+            "illustrator",
+            "narrator",
+            "contributor"
+          ],
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "MetadataBookAuthor",
+      "type": "object"
+    },
+    "MetadataBookDate": {
+      "additionalProperties": false,
+      "description": "A book date at year, month or day precision (the C5.1 shape, in book years 1000-2100).\n\nA book can be centuries older than C5.1's 1950 floor for release years, so a work's first\npublication and an edition's date use this shape instead of ``MetadataRelease``.",
+      "properties": {
+        "date": {
+          "maxLength": 10,
+          "pattern": "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$",
+          "title": "Date",
+          "type": "string"
+        },
+        "precision": {
+          "enum": [
+            "year",
+            "month",
+            "day"
+          ],
+          "title": "Precision",
+          "type": "string"
+        }
+      },
+      "required": [
+        "date",
+        "precision"
+      ],
+      "title": "MetadataBookDate",
+      "type": "object"
+    },
+    "MetadataBookEdition": {
+      "additionalProperties": false,
+      "description": "One edition of the work (C15 2.3 ``editions[]``, with the host's field names).\n\n``key`` is the source's own edition id. An edition never becomes a library record by\nitself: the host copies one into the work's editions only when the person adds it.",
+      "properties": {
+        "key": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Key"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "isbn_13": {
+          "anyOf": [
+            {
+              "maxLength": 13,
+              "minLength": 13,
+              "pattern": "^97[89]\\d{10}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Isbn 13"
+        },
+        "isbn_10": {
+          "anyOf": [
+            {
+              "maxLength": 10,
+              "minLength": 10,
+              "pattern": "^\\d{9}[\\dX]$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Isbn 10"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "enum": [
+                "paperback",
+                "hardcover",
+                "ebook",
+                "audiobook",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Format"
+        },
+        "publisher": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Publisher"
+        },
+        "publish_date": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MetadataBookDate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "page_count": {
+          "anyOf": [
+            {
+              "maximum": 100000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Count"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "maxLength": 16,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Language"
+        }
+      },
+      "title": "MetadataBookEdition",
+      "type": "object"
+    },
     "MetadataCandidate": {
       "additionalProperties": false,
       "description": "Lightweight identity; metadata and artwork are separate operations.",
@@ -398,6 +731,32 @@
           "maxItems": 32,
           "title": "Platforms",
           "type": "array"
+        },
+        "authors": {
+          "default": [],
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 30,
+          "title": "Authors",
+          "type": "array"
+        },
+        "isbn_13": {
+          "anyOf": [
+            {
+              "maxLength": 13,
+              "minLength": 13,
+              "pattern": "^97[89]\\d{10}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Isbn 13"
         }
       },
       "required": [
@@ -1140,6 +1499,17 @@
           "anyOf": [
             {
               "$ref": "#/$defs/MetadataIdentity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "book": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MetadataBook"
             },
             {
               "type": "null"

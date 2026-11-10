@@ -29,7 +29,7 @@ sync credentials remain in their existing account integration settings.
 | Package | Media / capabilities | Credentials |
 | --- | --- | --- |
 | `metadata-gog` | Game catalogue search and metadata | None |
-| `metadata-atlas` | Merged game search and metadata from an Atlas server | Server URL (plain setting) and read token, system/user |
+| `metadata-atlas` | Merged game, anime, movie, TV and book search and metadata from an Atlas server (books and the ISBN lookup need Plugin API 1.1.20) | Server URL (plain setting) and read token, system/user |
 | `metadata-giantbomb` | Game search, metadata and artwork | GiantBomb API key, system/user |
 | `metadata-retroachievements` | Game search and metadata | RetroAchievements username/key, user |
 | `metadata-screenscraper` | Selected game artwork | Developer ID/password and account ID/password |
