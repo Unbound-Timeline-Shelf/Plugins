@@ -1,0 +1,27 @@
+{
+  "ISBN:9780000000040": {
+    "bib_key": "ISBN:9780000000040",
+    "details": {
+      "works": [
+        {
+          "key": "/works/OL900000001W"
+        }
+      ],
+      "title": "The Synthetic Lighthouse (Anniversary)",
+      "publishers": [
+        "Example Press"
+      ],
+      "publish_date": "2037",
+      "key": "/books/OL900000019M",
+      "type": {
+        "key": "/type/edition"
+      },
+      "isbn_13": [
+        "9780000000040"
+      ],
+      "physical_format": "Hardcover",
+      "edition_name": "Anniversary edition",
+      "number_of_pages": 430
+    }
+  }
+}

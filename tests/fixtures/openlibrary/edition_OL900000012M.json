@@ -1,0 +1,20 @@
+{
+  "works": [
+    {
+      "key": "/works/OL900000001W"
+    }
+  ],
+  "key": "/books/OL900000012M",
+  "type": {
+    "key": "/type/edition"
+  },
+  "title": "The Synthetic Lighthouse",
+  "publishers": [
+    "Example Press"
+  ],
+  "publish_date": "Aug 01, 2005",
+  "isbn_13": [
+    "9780000000019"
+  ],
+  "physical_format": "Paperback"
+}

@@ -1,0 +1,5 @@
+{
+  "status": 429,
+  "error": "Remote server rejected the request.",
+  "retry_after_seconds": 30
+}

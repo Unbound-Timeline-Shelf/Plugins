@@ -1,0 +1,39 @@
+{
+  "ISBN:9780000000019": {
+    "bib_key": "ISBN:9780000000019",
+    "info_url": "https://openlibrary.org/books/OL900000012M/The_Synthetic_Lighthouse",
+    "preview": "noview",
+    "details": {
+      "works": [
+        {
+          "key": "/works/OL900000001W"
+        }
+      ],
+      "title": "The Synthetic Lighthouse",
+      "authors": [
+        {
+          "key": "/authors/OL900000001A",
+          "name": "Ada Example"
+        }
+      ],
+      "publishers": [
+        "Example Press"
+      ],
+      "publish_date": "Aug 01, 2005",
+      "key": "/books/OL900000012M",
+      "type": {
+        "key": "/type/edition"
+      },
+      "isbn_13": [
+        "9780000000019"
+      ],
+      "physical_format": "Paperback",
+      "number_of_pages": 528,
+      "languages": [
+        {
+          "key": "/languages/eng"
+        }
+      ]
+    }
+  }
+}
