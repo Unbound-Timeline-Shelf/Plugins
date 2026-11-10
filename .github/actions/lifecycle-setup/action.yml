@@ -63,6 +63,12 @@ runs:
           elif [ "$COMPANION_BRANCH" = "programme/p7-plugins" ]; then
             candidate_branch="programme/m7-plugin-api-1120"
           fi
+          # Books (C15 6.3-6.5): only the M10 host accepts a `book` declaration. Pinned to the commit the book
+          # checks were written against (programme/m10-plugin-api-books, host PR #534); re-pin once it lands.
+          if [ "$COMPANION_BRANCH" = "programme/p8-metadata-atlas-books" ]; then
+            ref=efded8aeaed4859d2da43995c8418c37c3a15458
+            candidate_branch=main
+          fi
           if [ "$candidate_branch" != main ] && git ls-remote --exit-code --heads https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf.git "refs/heads/$candidate_branch" >/dev/null; then
             encoded_branch="$(printf '%s' "$candidate_branch" | jq -sRr @uri)"
             open_prs="$(curl -fsSL \
