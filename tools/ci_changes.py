@@ -14,6 +14,8 @@ ZERO_SHA = "0" * 40
 JELLYFIN = "official/jellyfin-media-sync"
 PWA = "official/pwa"
 ATLAS = "official/metadata-atlas"
+# Its real-worker lifecycle runs in the reference lifecycle job (on the books host, C15 6.3-6.4).
+OPENLIBRARY = "official/metadata-openlibrary"
 ATLAS_LIVE_TESTS = "tests/atlas_live/"
 REPOSITORY = Path(__file__).resolve().parents[1]
 TOOL_NAME = re.compile(r"^(?:check|capture)_(?P<rest>.+?)\.[^.]+$")
@@ -79,7 +81,7 @@ def classify(files: list[str] | None) -> dict[str, object]:
     return {
         "plugins": sorted(plugins),
         "lifecycle": shared or bool(plugins),
-        "lifecycle_reference": shared or any(p.startswith("examples/") for p in plugins),
+        "lifecycle_reference": shared or OPENLIBRARY in plugins or any(p.startswith("examples/") for p in plugins),
         "lifecycle_jellyfin": shared or JELLYFIN in plugins,
         "lifecycle_pwa": shared or PWA in plugins,
         "full_tests": shared or tests or bool(plugins),

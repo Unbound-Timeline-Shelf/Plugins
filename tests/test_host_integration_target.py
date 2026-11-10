@@ -130,7 +130,8 @@ def test_contract_checks_use_the_pinned_books_host_whenever_the_plugin_declares_
     }
     assert "steps.contract_host.outputs.ref != ''" in checkout["if"]
     runs = [step.get("run", "") for step in steps]
-    for tool in ("tools/check_host_contract.py", "tools/check_metadata_atlas_host.py"):
+    for tool in ("tools/check_host_contract.py", "tools/check_metadata_atlas_host.py",
+                 "tools/check_metadata_openlibrary_host.py"):
         command = next(run for run in runs if tool in run)
         assert '--host-root "${{ steps.contract_host.outputs.root }}"' in command
     # Templates, lifecycle and PWA checks stay on the ordinary companion host.
@@ -149,3 +150,22 @@ def test_every_lifecycle_job_shares_the_setup_and_feeds_the_aggregate_status():
     aggregate = jobs["lifecycle"]
     assert aggregate["if"] == "always()"
     assert set(aggregate["needs"]) == {"gate", *LIFECYCLE_JOBS}
+
+
+def test_book_only_plugins_run_their_real_worker_lifecycle_on_the_pinned_books_host():
+    """C15 P9: a plugin that serves only `book` cannot install on the companion host (Plugin API 1.1.19), so the
+    reference lifecycle job runs it alone (`--source`) against the same pinned M10 commit as the contract checks."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("reference_lifecycle", ROOT / "tools/check_reference_lifecycle.py")
+    lifecycle = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(lifecycle)
+    steps = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())["jobs"]["lifecycle-reference"]["steps"]
+    checkout = next(step for step in steps if step.get("with", {}).get("path") == ".validation/host-books")
+    assert checkout["with"]["ref"] == BOOKS_HOST_REF
+    runs = [step.get("run", "") for step in steps]
+    for source in lifecycle.BOOKS_HOST_SOURCES:
+        assert source not in lifecycle.SOURCE_PATHS
+        assert any(f"--host-root .validation/host-books --source {source.as_posix()}" in run for run in runs), source
+    contract = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())["jobs"]["test-and-build"]["steps"]
+    assert any(BOOKS_HOST_REF in step.get("run", "") for step in contract)

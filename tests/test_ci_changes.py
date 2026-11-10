@@ -69,6 +69,17 @@ def test_the_live_atlas_lane_runs_for_the_atlas_plugin_its_tests_and_shared_file
     assert everything()["atlas_live"] is True
 
 
+def test_the_open_library_plugin_runs_its_real_worker_lifecycle_in_the_reference_job():
+    """C15 P9: the plugin's own lifecycle step lives in the reference lifecycle job (on the books host), so a change
+    to the plugin or its host-decision tool selects that job, and nothing else beyond the official lifecycle."""
+    for path in ("official/metadata-openlibrary/plugin.py", "tools/check_metadata_openlibrary_host.py",
+                 "tools/check_metadata_openlibrary_live.py"):
+        selection = classify([path])
+        assert selection["plugins"] == ["official/metadata-openlibrary"], path
+        assert selection["lifecycle"] and selection["lifecycle_reference"] and selection["full_tests"]
+        assert not (selection["lifecycle_jellyfin"] or selection["lifecycle_pwa"] or selection["atlas_live"])
+
+
 def test_tool_ownership_needs_one_plugin_and_a_check_or_capture_name():
     available = ["official/metadata-hltb", "official/metadata-tmdb", "official/pwa",
                  "examples/ui-api"]
