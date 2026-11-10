@@ -596,7 +596,8 @@ def isbn_lookup(values, isbn):
         return []
     record = result.get("game")
     if not adopted(result) or not isinstance(record, dict) or record.get("media_type") != "book" \
-            or not record.get("title"):
+            or not record.get("title") or not isinstance(record.get("id"), str) \
+            or not ATLAS_ID.fullmatch(record["id"]):
         return []
     return [candidate(record, "book", isbn)]
 

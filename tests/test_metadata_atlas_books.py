@@ -152,6 +152,10 @@ def test_an_isbn_lookup_resolves_the_work_through_the_isbn_crosswalk(atlas, monk
                   "game": BOOK}]},
     {"results": [{"canonical_id": None, "reason": "none"}]},
     {"results": [{"canonical_id": BOOK_ID, "reason": "crosswalk", "game": {**BOOK, "media_type": "game"}}]},
+    # an older Atlas (no `reason`, only `method`) whose view lacks a usable id: nothing, never a KeyError
+    {"results": [{"canonical_id": BOOK_ID, "method": "crosswalk",
+                  "game": {key: value for key, value in BOOK.items() if key != "id"}}]},
+    {"results": [{"canonical_id": BOOK_ID, "method": "crosswalk", "game": {**BOOK, "id": "not-an-atlas-id"}}]},
     {"results": []},
 ])
 def test_an_isbn_lookup_without_a_certain_book_lists_nothing(atlas, monkeypatch, answer):
