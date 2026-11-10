@@ -31,6 +31,10 @@ LIFECYCLE_JOBS = ("lifecycle-official", "lifecycle-reference", "lifecycle-jellyf
         # The 1.1.20 programme branches test against the open 1.1.20 host PR (#500), then main once it merges.
         ("", "programme/p7-plugins", "programme/m7-plugin-api-1120", True, "programme/m7-plugin-api-1120"),
         ("", "programme/p7-plugins", "programme/m7-plugin-api-1120", False, "main"),
+        # Books (C15): the Atlas plugin's `book` needs the M10 host, pinned by commit; an explicit ref still wins.
+        ("", "programme/p8-metadata-atlas-books", "programme/p8-metadata-atlas-books", True,
+         "efded8aeaed4859d2da43995c8418c37c3a15458"),
+        ("pinned-host-sha", "programme/p8-metadata-atlas-books", "main", False, "pinned-host-sha"),
     ],
 )
 @pytest.mark.parametrize(
