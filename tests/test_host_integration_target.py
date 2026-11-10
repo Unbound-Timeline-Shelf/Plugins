@@ -90,21 +90,33 @@ BOOKS_HOST_REF = "efded8aeaed4859d2da43995c8418c37c3a15458"
 
 
 @pytest.mark.parametrize(
-    "branch,root,ref",
+    "serves_books,root,ref",
     [
-        ("programme/p8-metadata-atlas-books", ".validation/host-books", BOOKS_HOST_REF),
-        ("programme/p7-plugins", ".validation/host", ""),
-        ("main", ".validation/host", ""),
+        (None, ".validation/host-books", BOOKS_HOST_REF),
+        ("True", ".validation/host-books", BOOKS_HOST_REF),
+        ("False", ".validation/host", ""),
     ],
 )
-def test_contract_checks_use_the_pinned_books_host_only_on_the_books_branch(tmp_path, branch, root, ref):
-    """Only the plugin contract checks of the books branch run against the M10 host commit that accepts `book`."""
+def test_contract_checks_use_the_pinned_books_host_whenever_the_plugin_declares_book(
+        tmp_path, serves_books, root, ref):
+    """The plugin contract checks run against the M10 host commit that accepts `book` whenever the Atlas plugin
+    declares `book`, whatever the branch is called (P8, a branch stacked on it, or its base after it merges)."""
     steps = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())["jobs"]["test-and-build"]["steps"]
     index = next(i for i, step in enumerate(steps) if step.get("id") == "contract_host")
+    assert "COMPANION_BRANCH" not in steps[index]["run"]
+    env = {**os.environ, "GITHUB_OUTPUT": str(tmp_path / "output")}
+    if serves_books is not None:
+        # A plugin with or without `book`: a stand-in `python` answers what the plugin declares.
+        shim = tmp_path / "bin"
+        shim.mkdir()
+        (shim / "python").write_text(f"#!/bin/sh\necho {serves_books}\n")
+        (shim / "python").chmod(0o755)
+        env["PATH"] = f"{shim}{os.pathsep}{env['PATH']}"
     output = tmp_path / "output"
     subprocess.run(
         ["bash", "-e", "-c", steps[index]["run"]],
-        env={**os.environ, "COMPANION_BRANCH": branch, "GITHUB_OUTPUT": str(output)},
+        cwd=ROOT,
+        env=env,
         capture_output=True,
         text=True,
         check=True,

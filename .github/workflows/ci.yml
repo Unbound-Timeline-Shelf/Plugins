@@ -507,16 +507,17 @@ jobs:
       # checks below use the host commit the book checks were written against (programme/m10-plugin-api-books, host
       # PR #534), pinned so they do not move under this PR. Only these checks use it: the rest of the M10 stack also
       # changes the host's UI and PWA templates, which the lifecycle and PWA checks are not written for. Re-pin to the
-      # merge commit once the host stack lands.
+      # merge commit once the host stack lands. The pin follows the plugin, not the branch name: any branch whose Atlas
+      # plugin declares `book` (P8 and every branch stacked on it, or the base branch after P8 merges) gets it, and a
+      # plugin without `book` keeps the ordinary companion host.
       - name: Select host for the plugin contract checks
         if: needs.gate.outputs.full_tests == 'true'
         id: contract_host
-        env:
-          COMPANION_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           root=.validation/host
           ref=
-          if [ "$COMPANION_BRANCH" = "programme/p8-metadata-atlas-books" ]; then
+          serves_books=$(python -c "import sys; sys.path[:0] = ['.', 'official/metadata-atlas']; import plugin; print('book' in plugin.DECLARATION['media_types'])")
+          if [ "$serves_books" = "True" ]; then
             root=.validation/host-books
             ref=efded8aeaed4859d2da43995c8418c37c3a15458
           fi
