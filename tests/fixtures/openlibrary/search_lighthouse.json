@@ -1,0 +1,50 @@
+{
+  "numFound": 45,
+  "start": 0,
+  "numFoundExact": true,
+  "num_found": 45,
+  "q": "synthetic lighthouse",
+  "documentation_url": "https://openlibrary.org/dev/docs/api/search",
+  "offset": null,
+  "docs": [
+    {
+      "key": "/works/OL900000001W",
+      "title": "The Synthetic Lighthouse",
+      "subtitle": "A Coastal Novel",
+      "author_name": [
+        "Ada Example",
+        "B. Placeholder"
+      ],
+      "first_publish_year": 1937,
+      "cover_i": 9000001,
+      "edition_count": 6
+    },
+    {
+      "key": "/works/OL900000002W",
+      "title": "The Synthetic Lighthouse Keeper",
+      "author_name": [
+        "C. Sample"
+      ],
+      "edition_count": 1
+    },
+    {
+      "key": "/works/OL900000003W",
+      "title": "An Older Synthetic Almanac",
+      "author_name": [
+        "D. Fixture"
+      ],
+      "first_publish_year": 1605,
+      "edition_count": 2
+    },
+    {
+      "key": "/books/OL900000011M",
+      "title": "An edition key is not a work"
+    },
+    {
+      "key": "/works/OL900000004W",
+      "author_name": [
+        "No Title"
+      ]
+    }
+  ]
+}

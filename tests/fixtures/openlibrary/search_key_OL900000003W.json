@@ -1,0 +1,14 @@
+{
+  "numFound": 1,
+  "start": 0,
+  "numFoundExact": true,
+  "q": "key:\"/works/OL900000003W\"",
+  "docs": [
+    {
+      "key": "/works/OL900000003W",
+      "author_name": [
+        "D. Fixture"
+      ]
+    }
+  ]
+}

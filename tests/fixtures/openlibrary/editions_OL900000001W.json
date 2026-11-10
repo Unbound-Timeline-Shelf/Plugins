@@ -1,0 +1,178 @@
+{
+  "links": {
+    "self": "/works/OL900000001W/editions.json?limit=50",
+    "work": "/works/OL900000001W"
+  },
+  "size": 7,
+  "entries": [
+    {
+      "works": [
+        {
+          "key": "/works/OL900000001W"
+        }
+      ],
+      "key": "/books/OL900000011M",
+      "type": {
+        "key": "/type/edition"
+      },
+      "title": "The Synthetic Lighthouse",
+      "physical_format": "Audio CD",
+      "publishers": [
+        "Example Audio"
+      ],
+      "publish_date": "2019",
+      "languages": [
+        {
+          "key": "/languages/eng"
+        }
+      ]
+    },
+    {
+      "works": [
+        {
+          "key": "/works/OL900000001W"
+        }
+      ],
+      "key": "/books/OL900000012M",
+      "type": {
+        "key": "/type/edition"
+      },
+      "title": "The Synthetic Lighthouse",
+      "physical_format": "Paperback",
+      "publishers": [
+        "Example Press"
+      ],
+      "publish_date": "Aug 01, 2005",
+      "isbn_13": [
+        "9780000000019"
+      ],
+      "number_of_pages": 528,
+      "languages": [
+        {
+          "key": "/languages/eng"
+        }
+      ]
+    },
+    {
+      "works": [
+        {
+          "key": "/works/OL900000001W"
+        }
+      ],
+      "key": "/books/OL900000013M",
+      "type": {
+        "key": "/type/edition"
+      },
+      "title": "The Synthetic Lighthouse",
+      "edition_name": "First edition",
+      "physical_format": "Hardcover",
+      "publishers": [
+        "Example Press"
+      ],
+      "publish_date": "June 1937",
+      "isbn_13": [
+        "978-0-00-000000-2"
+      ],
+      "isbn_10": [
+        "0000000000"
+      ],
+      "number_of_pages": 412,
+      "languages": [
+        {
+          "key": "/languages/eng"
+        }
+      ]
+    },
+    {
+      "works": [
+        {
+          "key": "/works/OL900000001W"
+        }
+      ],
+      "key": "/books/OL900000014M",
+      "type": {
+        "key": "/type/edition"
+      },
+      "title": "The Synthetic Lighthouse",
+      "physical_format": "Mass Market Paperback",
+      "publishers": [
+        "Pocket Example"
+      ],
+      "publish_date": "c1950",
+      "isbn_10": [
+        "0000000027"
+      ]
+    },
+    {
+      "works": [
+        {
+          "key": "/works/OL900000001W"
+        }
+      ],
+      "key": "/books/OL900000015M",
+      "type": {
+        "key": "/type/edition"
+      },
+      "title": "The Synthetic Lighthouse",
+      "physical_format": "E-book",
+      "publishers": [
+        "Example Digital"
+      ],
+      "publish_date": "2015-03-02",
+      "isbn_13": [
+        "9780000000003"
+      ],
+      "isbn_10": [
+        "0000000035"
+      ]
+    },
+    {
+      "works": [
+        {
+          "key": "/works/OL900000001W"
+        }
+      ],
+      "key": "/books/OL900000016M",
+      "type": {
+        "key": "/type/edition"
+      },
+      "title": "The Synthetic Lighthouse",
+      "physical_format": "Paperback",
+      "publishers": [
+        "Example Press"
+      ],
+      "publish_date": "2004",
+      "isbn_13": [
+        "9780000000019"
+      ],
+      "number_of_pages": 530
+    },
+    {
+      "works": [
+        {
+          "key": "/works/OL900000001W"
+        }
+      ],
+      "key": "/books/OL900000017M",
+      "type": {
+        "key": "/type/edition"
+      },
+      "title": "The Synthetic Lighthouse",
+      "physical_format": "Scroll",
+      "publish_date": "sometime around 1990?",
+      "number_of_pages": 0
+    },
+    {
+      "works": [
+        {
+          "key": "/works/OL900000001W"
+        }
+      ],
+      "key": "/books/OL900000018M",
+      "type": {
+        "key": "/type/edition"
+      },
+      "title": "The Synthetic Lighthouse"
+    }
+  ]
+}

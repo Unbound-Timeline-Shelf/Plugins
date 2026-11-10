@@ -1,0 +1,21 @@
+{
+  "title": "An Older Synthetic Almanac",
+  "key": "/works/OL900000003W",
+  "type": {
+    "key": "/type/work"
+  },
+  "first_publish_date": "Aug 01, 1605",
+  "covers": [
+    -1
+  ],
+  "authors": [
+    {
+      "author": {
+        "key": "/authors/OL900000003A"
+      },
+      "type": {
+        "key": "/type/author_role"
+      }
+    }
+  ]
+}
