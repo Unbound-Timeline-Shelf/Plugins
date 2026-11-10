@@ -27,7 +27,7 @@ def test_official_provider_registration_matches_exported_public_contract(source,
     schema = json.loads((ROOT / "tools/schemas/metadata-registration-v1.schema.json").read_text())
     jsonschema.validate(module.DECLARATION, schema)
     manifest = json.loads((source.parent / "manifest.json").read_text())
-    expected = {"metadata-hltb": "1.1.13", "metadata-atlas": "1.1.20"}
+    expected = {"metadata-hltb": "1.1.13", "metadata-atlas": "1.1.20", "metadata-openlibrary": "1.1.20"}
     assert manifest["api_contract_version"] == expected.get(source.parent.name, "1.1.1")
     for action in module.DECLARATION["operations"].values():
         assert callable(getattr(module, action))
