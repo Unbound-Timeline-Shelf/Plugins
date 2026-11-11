@@ -24,7 +24,11 @@ MAX_SEARCH_PAGES = 20
 # Open Library asks for at most about one request a second from an unidentified client and allows more to a
 # client that names a contact (C15 §3.2 [L]); the per-provider pacing below follows it.
 GAP_ANONYMOUS, GAP_IDENTIFIED = 1.0, 0.34
-CONTACT = re.compile(r"[^\s@;()<>\"]{1,64}@[^\s@;()<>\"]{1,190}|https://[^\s;()<>\"]{1,190}", re.ASCII)
+# Visible ASCII only (no space, control, DEL or non-ASCII character), without the characters that would end the
+# User-Agent comment or the address: `"();<>` and, in the e-mail parts, `@`.
+_MAILBOX = r"[\x21\x23-\x27\x2a-\x3a\x3d\x3f\x41-\x7e]"
+_URL = r"[\x21\x23-\x27\x2a-\x3a\x3d\x3f-\x7e]"
+CONTACT = re.compile(rf"{_MAILBOX}{{1,64}}@{_MAILBOX}{{1,190}}|https://{_URL}{{1,190}}")
 # Below the runtime's 64 KiB action output limit, measured as json.dumps of the whole result.
 RESULT_BYTES = 56 * 1024
 DESCRIPTION_FLOOR = 4000
@@ -169,7 +173,25 @@ def search(values):
     candidates = [found for found in map(search_candidate, docs) if found]
     total = books.bounded_int(data.get("numFound"), 0, 10**9) or 0
     more = page < MAX_SEARCH_PAGES and page * limit < total and len(docs) == limit
-    return {"candidates": candidates, "next_cursor": str(page + 1) if more else None}
+    return fit_search({"candidates": candidates, "next_cursor": str(page + 1) if more else None})
+
+
+def fit_search(result):
+    """Keep a search page under the runtime's action output limit. Open Library records are user-editable, so a
+    page of long titles and long author lists can exceed it. Alternate titles go first (from the end), then whole
+    candidates from the end. Author lists are never shortened: metadata takes a work's authors from the candidate
+    the host selected, and a shortened list would be stored as the work's authors."""
+    def overflow():
+        return len(json.dumps(result, ensure_ascii=False).encode("utf-8")) - RESULT_BYTES
+
+    candidates = result["candidates"]
+    for candidate in reversed(candidates):
+        if overflow() <= 0:
+            break
+        candidate.pop("alternate_titles", None)
+    while overflow() > 0 and candidates:
+        candidates.pop()
+    return result
 
 
 # --- works ----------------------------------------------------------------------------------------------------------
