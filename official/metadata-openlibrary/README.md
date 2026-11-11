@@ -18,7 +18,9 @@ One optional field, **Contact e-mail or URL sent to Open Library** (system scope
 every request in the `User-Agent` header when an administrator sets it. Open Library asks API clients to identify
 themselves and allows an identified client a higher request rate. Nothing about the operator is sent unless an
 administrator fills it in (C15 §3.2, D15.7). Without it the header names only the app, this plugin's version and
-this repository's URL.
+this repository's URL. The value must be an e-mail address or an `https://` URL made of visible ASCII
+characters (no spaces, control or non-ASCII characters, and none of `"();<>`); anything else fails every request
+with `invalid_configuration`.
 
 ## What it does
 
@@ -53,6 +55,8 @@ Details:
   `paperback`, `hardcover`, `ebook`, `audiobook` or `other`. The language is Open Library's code (`eng`).
 - **Size.** A result stays under the runtime's 64 KiB action output limit (56 KiB measured). A very long
   description is shortened first, to no less than 4000 characters, and only then are editions dropped from the end.
+  A search page over the limit (long user-edited titles and author lists) drops alternate titles, then
+  candidates from the end; author lists are never shortened.
 - **Pacing.** One request a second without a contact, about three with one, shared by every worker through
   `plugin.storage` (`ProviderHttp`). Interactive requests never wait more than a second for a slot. Search preloads
   may therefore report `rate_limited` for some results; the host keeps the others.

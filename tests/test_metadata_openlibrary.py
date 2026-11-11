@@ -384,6 +384,27 @@ def test_metadata_stays_under_the_action_output_limit(openlibrary, monkeypatch):
     assert len(fitted["description"]) == openlibrary.DESCRIPTION_FLOOR and 0 < len(fitted["book"]["editions"]) < 400
 
 
+def test_search_stays_under_the_action_output_limit(openlibrary, monkeypatch):
+    """Open Library records are user-editable: a page of 50 works with 500-character titles and subtitles and 30
+    long author names each would exceed the runtime's 64 KiB limit. Alternate titles go first, then candidates
+    from the end; author lists are never shortened (metadata stores the selected candidate's authors)."""
+    docs = [{"key": f"/works/OL9{n:08d}W", "title": f"{n:03d} " + "T" * 240, "subtitle": "S" * 240,
+             "author_name": [f"{a:02d} " + "A" * 190 for a in range(30)], "first_publish_year": 2001}
+            for n in range(50)]
+    Gateway(monkeypatch, overrides={"/search.json": {"status": 200, "data": {"numFound": 5000, "docs": docs}}})
+    result = valid(openlibrary.search({"request": {"query": "anthology", "media_type": "book", "limit": 50}}))
+    assert len(json.dumps(result, ensure_ascii=False).encode()) <= openlibrary.RESULT_BYTES
+    candidates = result["candidates"]
+    assert 0 < len(candidates) < 50
+    assert [item["title"][:3] for item in candidates] == [f"{n:03d}" for n in range(len(candidates))]
+    assert all(len(item["authors"]) == 30 and "alternate_titles" not in item for item in candidates)
+    assert result["next_cursor"] == "2"
+    # a page under the limit is untouched
+    small = {"candidates": [{"title": "x", "alternate_titles": ["x: y"]}], "next_cursor": None}
+    assert openlibrary.fit_search(small) == {"candidates": [{"title": "x", "alternate_titles": ["x: y"]}],
+                                             "next_cursor": None}
+
+
 # --- media, health, failures and identification -------------------------------------------------------------------
 def test_media_offers_the_first_real_cover_by_id(openlibrary, monkeypatch):
     gateway = Gateway(monkeypatch)
@@ -417,7 +438,11 @@ def test_contact_identifies_the_client_only_when_an_administrator_sets_it(openli
     Gateway(monkeypatch)
     openlibrary.search({"request": {"query": "lighthouse", "media_type": "book"}})
     assert paces == [("openlibrary", openlibrary.GAP_IDENTIFIED), ("openlibrary", openlibrary.GAP_ANONYMOUS)]
-    for bad in ("not a contact", "x@y; z", "http://insecure.example", "a@b\r\nX-Injected: 1"):
+    # only visible ASCII: control characters, DEL, NEL, U+2028 and other non-ASCII characters are refused here as
+    # a configuration error rather than failing every request in the host's HTTP layer
+    for bad in ("not a contact", "x@y; z", "http://insecure.example", "a@b\r\nX-Injected: 1", "a@b\x00c",
+                "a@b\x85c", "a@b c", "https://x\x7f", "https://exämple.test", "bücher@example.test",
+                "a@b\tc"):
         Gateway(monkeypatch, contact=bad)
         assert openlibrary.search({"request": {"query": "lighthouse", "media_type": "book"}}) == {
             "failure": {"code": "invalid_configuration"}}
