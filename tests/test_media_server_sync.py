@@ -229,6 +229,7 @@ class Host:
         self.network: list[dict] = []
         self.conflicts: dict[str, dict] = {}
         self.denied: set[str] = set()
+        self.failing_availability = 0  # availability-only media.sync calls that fail before the host applies them
 
     def __call__(self, method, capability, payload):
         if capability in self.denied:
@@ -262,6 +263,9 @@ class Host:
         if method == "media.sync":
             assert capability == "media.write"
             self.check_enrich(payload)
+            if payload.get("availability_only") and self.failing_availability:
+                self.failing_availability -= 1
+                raise GatewayRequestError("host write failed", {"code": "unavailable"})
             self.syncs.append(payload)
             conflict = self.conflicts.get(payload["external_id"])
             if conflict and not (
@@ -566,6 +570,31 @@ def test_an_item_missing_from_two_complete_censuses_becomes_unavailable(plex):
     host.server.movies.insert(0, FakePlex.movie(0))
     run_to_completion(plugin)
     assert [s["available"] for s in host.syncs if s["external_id"] == "100"][-1] is True
+
+
+@pytest.mark.parametrize("name", ["plex", "emby"])
+def test_a_failed_unavailability_update_is_retried_until_the_host_accepts_it(name, request):
+    """Review #111: unavailability is kept pending until the host confirms the availability-only update."""
+    plugin, host = request.getfixturevalue(name)
+    (connect_plex if name == "plex" else connect_emby)(plugin)
+    run_to_completion(plugin)
+    removed = host.server.movies.pop(0)
+    removed_id = str(removed.get("ratingKey") or removed.get("Id"))
+    assert run_to_completion(plugin)[-1]["unavailable"] == 0  # first census without it
+    host.failing_availability = 1
+    host.syncs.clear()
+    results = []
+    for _ in range(50):
+        results.append(plugin.sync(ctx()))
+        if results[-1]["completed"]:
+            break
+    assert any(r.get("ok") is False for r in results)  # the update failed once ...
+    (retired,) = [s for s in host.syncs if s.get("availability_only")]  # ... and the retry reached the host
+    assert retired["external_id"] == removed_id and retired["available"] is False
+    assert results[-1]["completed"] and results[-1]["unavailable"] == 1
+    host.syncs.clear()
+    run_to_completion(plugin)
+    assert not any(s.get("availability_only") for s in host.syncs)  # confirmed: not sent again
 
 
 def test_conflicts_wait_for_an_explicit_merge_decision(plex):

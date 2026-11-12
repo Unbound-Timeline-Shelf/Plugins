@@ -693,6 +693,7 @@ def _stage(
         available=True,
         missing=0,
     )
+    state.pop("unavailable_pending", None)
     store(key, state)
     return state
 
@@ -869,11 +870,19 @@ def _finalize(user: str, conn: dict, cursor: dict, provider: Any) -> None:
         if state.get("missing_generation") != cursor["generation"]:
             state["missing"] = state.get("missing", 0) + 1
             state["missing_generation"] = cursor["generation"]
-        if state["missing"] >= MISSING_CENSUSES and state.get("available", True):
-            state["available"] = False
+        if state["missing"] >= MISSING_CENSUSES and (
+            state.get("available", True) or state.get("unavailable_pending")
+        ):
+            # Pending until the host confirms: a failed availability-only update is retried on the
+            # next step (and later censuses) instead of being recorded as already sent.
+            state.update(available=False, unavailable_pending=True)
             store(key, state)
-            if state.get("host_id"):
-                _apply(user, conn, state, provider, availability_only=True)
+            if state.get("host_id") and not _apply(
+                user, conn, state, provider, availability_only=True
+            ):
+                continue
+            state.pop("unavailable_pending", None)
+            store(key, state)
             cursor["unavailable"] += 1
         else:
             store(key, state)
