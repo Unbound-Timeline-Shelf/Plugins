@@ -230,6 +230,8 @@ class Host:
         self.conflicts: dict[str, dict] = {}
         self.denied: set[str] = set()
         self.failing_availability = 0  # availability-only media.sync calls that fail before the host applies them
+        self.availability_calls = 0
+        self.failing_availability_calls: set[int] = set()  # 1-based availability-only calls that fail
 
     def __call__(self, method, capability, payload):
         if capability in self.denied:
@@ -263,9 +265,11 @@ class Host:
         if method == "media.sync":
             assert capability == "media.write"
             self.check_enrich(payload)
-            if payload.get("availability_only") and self.failing_availability:
-                self.failing_availability -= 1
-                raise GatewayRequestError("host write failed", {"code": "unavailable"})
+            if payload.get("availability_only"):
+                self.availability_calls += 1
+                if self.failing_availability or self.availability_calls in self.failing_availability_calls:
+                    self.failing_availability = max(self.failing_availability - 1, 0)
+                    raise GatewayRequestError("host write failed", {"code": "unavailable"})
             self.syncs.append(payload)
             conflict = self.conflicts.get(payload["external_id"])
             if conflict and not (
@@ -595,6 +599,29 @@ def test_a_failed_unavailability_update_is_retried_until_the_host_accepts_it(nam
     host.syncs.clear()
     run_to_completion(plugin)
     assert not any(s.get("availability_only") for s in host.syncs)  # confirmed: not sent again
+
+
+@pytest.mark.parametrize("name", ["plex", "emby"])
+def test_a_failure_later_in_the_batch_keeps_the_count_of_items_already_confirmed(name, request):
+    """Two items retire in one finalize batch; the first is confirmed, the second fails. The retried batch skips
+    the confirmed one, so its count must survive the failed step: the census reports 2, not 1."""
+    plugin, host = request.getfixturevalue(name)
+    (connect_plex if name == "plex" else connect_emby)(plugin)
+    run_to_completion(plugin)
+    removed = [host.server.movies.pop(0) for _ in range(2)]
+    removed_ids = sorted(str(r.get("ratingKey") or r.get("Id")) for r in removed)
+    assert run_to_completion(plugin)[-1]["unavailable"] == 0
+    host.availability_calls = 0
+    host.failing_availability_calls = {2}
+    host.syncs.clear()
+    results = []
+    for _ in range(50):
+        results.append(plugin.sync(ctx()))
+        if results[-1]["completed"]:
+            break
+    assert any(r.get("ok") is False for r in results)
+    assert sorted(s["external_id"] for s in host.syncs if s.get("availability_only")) == removed_ids
+    assert results[-1]["completed"] and results[-1]["unavailable"] == 2
 
 
 def test_conflicts_wait_for_an_explicit_merge_decision(plex):

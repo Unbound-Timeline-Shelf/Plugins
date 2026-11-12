@@ -627,6 +627,12 @@ def _step(user: str, provider: Any) -> dict:
             cursor.update(error=str(exc), updated_at=now)
             store("sync/" + user, cursor)
         raise exc from None
+    except GatewayRequestError:
+        if cursor.get("phase") == "finalize":
+            # Items retired earlier in this batch are stored as confirmed and skipped when the batch is
+            # retried, so the `unavailable` count they added must be kept with the cursor.
+            store("sync/" + user, {**cursor, "updated_at": now})
+        raise
     cursor.update(updated_at=now, error=None)
     if cursor["phase"] == "done":
         cursor.update(completed_at=now, restarts=0)
