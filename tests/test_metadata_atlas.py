@@ -728,6 +728,14 @@ def test_another_record_without_a_redirect_is_not_reported_as_a_move(atlas, monk
     assert "identity" not in meta and meta["provider_ids"]["atlas"] == OTHER
 
 
+@pytest.mark.parametrize("source", ["atlas:" + "c" * 26, "atlas:" + "b" * 26, "", 7, "atlas:short"])
+def test_a_redirect_from_another_id_is_not_adopted(atlas, monkeypatch, source):
+    """Review #110: for requested A, Atlas serving live B with `redirected_from=C` did not vouch that A moved to B.
+    The host rewrites the saved id from `previous_ids`, so no redirect verdict is sent and the record is not adopted."""
+    meta, _ = by_atlas_id(atlas, monkeypatch, {**GAME, "id": OTHER, "redirected_from": source})
+    assert meta == {}
+
+
 @pytest.mark.parametrize("live_id", ["../../admin", "atlas:short", None])
 def test_a_malformed_redirect_still_sends_nothing(atlas, monkeypatch, live_id):
     meta, _ = by_atlas_id(atlas, monkeypatch, {**GAME, "id": live_id, "redirected_from": GAME["id"]})

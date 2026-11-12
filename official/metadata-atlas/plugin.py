@@ -607,8 +607,12 @@ def locate_match(values, selected):
             live = record.get("id")
             if live == identity:
                 verdict = identity_verdict("id")
-            elif record.get("redirected_from") is not None:
+            elif record.get("redirected_from") == identity:
                 verdict = identity_verdict("redirect", identity)
+            elif record.get("redirected_from") is not None:
+                # a redirect from an id the host did not ask for: Atlas did not vouch that this id moved, so the
+                # record is not adopted and no verdict could make the host rewrite its saved id
+                return None, None
             else:
                 # another record without a redirect: not a move Atlas vouched for, so the host is told nothing
                 verdict = None
