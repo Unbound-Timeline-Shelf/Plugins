@@ -480,6 +480,9 @@ jobs:
             # Game relations (C6.4) are read by the 1.1.20 host's provider_relations.
             elif [ "$COMPANION_BRANCH" = "programme/p5-relations-editions" ]; then
               candidate_branch="programme/m7-plugin-api-1120"
+            # Plex and Emby media sync declare Plugin API 1.1.20, and this branch carries the 1.1.20 schemas.
+            elif [ "$COMPANION_BRANCH" = "programme/p7-plugins" ]; then
+              candidate_branch="programme/m7-plugin-api-1120"
             fi
             if [ "$candidate_branch" != main ] && git ls-remote --exit-code --heads https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf.git "refs/heads/$candidate_branch" >/dev/null; then
               encoded_branch="$(printf '%s' "$candidate_branch" | jq -sRr @uri)"

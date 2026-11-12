@@ -28,6 +28,9 @@ LIFECYCLE_JOBS = ("lifecycle-official", "lifecycle-reference", "lifecycle-jellyf
         ("", "feat/discord-social-activity", "feat/plugin-discord-activity-host", False, "main"),
         ("pinned-host-sha", "feat/discord-social-activity", "feat/plugin-discord-activity-host", True,
          "pinned-host-sha"),
+        # The 1.1.20 programme branches test against the open 1.1.20 host PR (#500), then main once it merges.
+        ("", "programme/p7-plugins", "programme/m7-plugin-api-1120", True, "programme/m7-plugin-api-1120"),
+        ("", "programme/p7-plugins", "programme/m7-plugin-api-1120", False, "main"),
     ],
 )
 @pytest.mark.parametrize(
