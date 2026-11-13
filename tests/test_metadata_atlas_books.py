@@ -226,6 +226,21 @@ def test_book_search_stays_under_the_action_output_limit(atlas, monkeypatch):
     assert [item["external_id"] for item in seen] == [f"atlas:{n:026d}" for n in range(50)]
 
 
+def test_a_candidate_too_large_to_fit_alone_is_skipped_not_looped_on(atlas, monkeypatch):
+    """olie-ob's #113 re-review: a single candidate that exceeds SEARCH_RESULT_BYTES even alone used to make
+    `fit_search` return it as the only (empty) page and set `next_cursor` back to its own index, so a caller
+    following the cursor never made progress. It must be skipped so later, smaller candidates still come
+    through, and the cursor must always advance."""
+    oversized = {"id": f"atlas:{0:026d}", "media_type": "book", "title": "T" * 100_000}
+    small = {"id": f"atlas:{1:026d}", "media_type": "book", "title": "A small book"}
+    gateway = Gateway(monkeypatch, routes={"/api/v2/games": {"status": 200, "data": {"results": [oversized, small]}}})
+    result = atlas.search({"request": {"query": "anthology", "media_type": "book", "limit": 50}})
+    jsonschema.validate(result, RESPONSE_SCHEMA)
+    assert [item["external_id"] for item in result["candidates"]] == [small["id"]]
+    assert "next_cursor" not in result
+    assert len(gateway.calls) == 1
+
+
 def test_a_malformed_search_cursor_is_rejected_without_a_request(atlas, monkeypatch):
     gateway = Gateway(monkeypatch)
     for bad in ("x", "-1", "1.5"):
@@ -348,6 +363,26 @@ def test_editions_are_validated_deduplicated_and_bounded(atlas, monkeypatch):
     assert len(got) == 50
     isbns = [item["isbn_13"] for item in got if "isbn_13" in item]
     assert len(isbns) == len(set(isbns))
+
+
+def test_metadata_response_stays_under_the_action_output_limit(atlas, monkeypatch):
+    """olie-ob's #113 re-review: 30 long author names plus 50 editions with long multibyte names/publishers
+    serialize past the runtime's 65,536-byte action output limit (reproduced: 69,689 bytes). Editions are
+    dropped from the end, same technique as search, until the response fits; the work's own fields, including
+    its authors, are never trimmed, since there is no continuation cursor for a single metadata response."""
+    cjk_name, cjk_publisher = "名" * 200, "出" * 200
+    record = {
+        **BOOK,
+        "authors": [{"name": f"{a:02d} " + "A" * 196, "role": "author"} for a in range(30)],
+        "editions": [
+            {"name": cjk_name, "publisher": cjk_publisher, "provider_ids": {"openlibrary_edition": f"OL{n}M"}}
+            for n in range(50)
+        ],
+    }
+    meta = book_details(atlas, monkeypatch, record)
+    assert len(json.dumps({"metadata": meta}, ensure_ascii=False).encode("utf-8")) <= atlas.METADATA_RESULT_BYTES
+    assert len(meta["book"]["authors"]) == 30
+    assert 0 < len(meta["book"]["editions"]) < 50
 
 
 def test_the_matched_isbn_names_its_edition(atlas, monkeypatch):

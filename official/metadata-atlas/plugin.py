@@ -601,26 +601,25 @@ def fit_search(results, offset, media_type):
     than shortened (author lists are never trimmed: metadata takes a book's authors from the candidate the host
     selected), and `next_cursor` resumes the same query at the first result that did not fit, so a result Atlas
     already matched is only deferred, never lost. A record Atlas listed that never became a candidate (no id or
-    title, or another media type) is skipped for good, exactly as it always was."""
-    indices, candidates = [], []
+    title, or another media type) is skipped for good, exactly as it always was.
+
+    A candidate that cannot fit the budget even alone (an oversized book with many long author names, say) can
+    never be returned by shrinking the page around it, so it is skipped for good too: including it would make
+    every page from here on empty, and a caller following `next_cursor` would loop on the same cursor forever.
+    Skipping it still lets smaller candidates later in the page fill the rest of the response."""
+    candidates = []
+    consumed = len(results)
     for index, record in enumerate(results[offset:], start=offset):
-        if record.get("id") and record.get("title") and record.get("media_type", media_type) == media_type:
-            indices.append(index)
-            candidates.append(candidate(record, media_type))
-    found = len(indices)
-
-    def overflow():
-        return len(json.dumps({"candidates": candidates}, ensure_ascii=False).encode("utf-8")) - SEARCH_RESULT_BYTES
-
-    while overflow() > 0 and len(candidates) > 1:
-        candidates.pop()
-    if overflow() > 0 and candidates:
-        candidates.pop()
-    kept = len(candidates)
+        if not (record.get("id") and record.get("title") and record.get("media_type", media_type) == media_type):
+            continue
+        trial = candidates + [candidate(record, media_type)]
+        if len(json.dumps({"candidates": trial}, ensure_ascii=False).encode("utf-8")) > SEARCH_RESULT_BYTES:
+            if not candidates:
+                continue
+            consumed = index
+            break
+        candidates = trial
     result = {"candidates": candidates}
-    # every candidate found fit: the whole rest of the page (including any trailing unusable records) is spent.
-    # Otherwise resume right at the first one that was cut, so it is retried rather than skipped.
-    consumed = len(results) if kept == found else indices[kept]
     if consumed < len(results):
         result["next_cursor"] = str(consumed)
     return result
@@ -1153,6 +1152,25 @@ def with_relations(values, record):
     return {**record, "relations": full["relations"]}
 
 
+# Below the runtime's 64 KiB action output limit, same margin as SEARCH_RESULT_BYTES: a schema-valid book with
+# 30 long author names and up to 50 editions (each with a long name and publisher) can otherwise exceed it.
+METADATA_RESULT_BYTES = 56 * 1024
+
+
+def fit_metadata(result):
+    """Keep a metadata response under the runtime's action output limit. There is no continuation cursor for a
+    single candidate's metadata, so an oversized book's editions are dropped from the end (least recently added,
+    typically the least canonical) until the response fits; the work's own fields, including its authors, are
+    never trimmed."""
+    book = result.get("book")
+    editions = book.get("editions") if isinstance(book, dict) else None
+    if not isinstance(editions, list):
+        return result
+    while editions and len(json.dumps(result, ensure_ascii=False).encode("utf-8")) > METADATA_RESULT_BYTES:
+        editions.pop()
+    return result
+
+
 @operation
 def metadata(values):
     selected = values["candidate"]
@@ -1181,6 +1199,8 @@ def metadata(values):
             {"label": "Atlas record", "url": f"{root}/game/{quote(identity, safe=':')}"},
             *result.get("links", []),
         ]
+    if media_type == "book":
+        result = fit_metadata(result)
     return {"metadata": result}
 
 
