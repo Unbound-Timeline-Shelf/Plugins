@@ -195,6 +195,51 @@ def test_the_isbn_option_is_ignored_for_other_media_types(atlas, monkeypatch):
     assert gateway.calls[0]["url"].split("?")[0].endswith("/api/v2/games")
 
 
+def test_book_search_stays_under_the_action_output_limit(atlas, monkeypatch):
+    """[P2] olie-ob's #113 review: `candidate()` adds up to 30 author names to each book result, and a full page
+    of 50 candidates serializes past the runtime's 64 KiB action output limit (reproduced with valid synthetic
+    records: 307,006 bytes for 50). Candidates dropped from the end stay reachable through `next_cursor`, which
+    resumes the same query (Atlas is deterministic for the same q/limit/type) at the first one that did not fit."""
+    records = [{
+        "id": f"atlas:{n:026d}", "media_type": "book", "title": f"{n:03d} " + "T" * 495,
+        "authors": [{"name": f"{a:02d} " + "A" * 185, "role": "author"} for a in range(30)],
+    } for n in range(50)]
+    gateway = Gateway(monkeypatch, routes={"/api/v2/games": {"status": 200, "data": {"results": records}}})
+    result = atlas.search({"request": {"query": "anthology", "media_type": "book", "limit": 50}})
+    jsonschema.validate(result, RESPONSE_SCHEMA)
+    assert len(json.dumps(result, ensure_ascii=False).encode("utf-8")) <= atlas.SEARCH_RESULT_BYTES
+    candidates = result["candidates"]
+    assert 0 < len(candidates) < 50
+    assert [item["title"][:3] for item in candidates] == [f"{n:03d}" for n in range(len(candidates))]
+    assert all(len(item["authors"]) == 30 for item in candidates)
+    assert result["next_cursor"] == str(len(candidates))
+    assert len(gateway.calls) == 1
+
+    # following the cursor like the host would reaches every one of the 50 candidates exactly once
+    seen = list(candidates)
+    cursor = result["next_cursor"]
+    while cursor is not None:
+        page = atlas.search({"request": {"query": "anthology", "media_type": "book", "limit": 50, "cursor": cursor}})
+        jsonschema.validate(page, RESPONSE_SCHEMA)
+        seen += page["candidates"]
+        cursor = page.get("next_cursor")
+    assert [item["external_id"] for item in seen] == [f"atlas:{n:026d}" for n in range(50)]
+
+
+def test_a_malformed_search_cursor_is_rejected_without_a_request(atlas, monkeypatch):
+    gateway = Gateway(monkeypatch)
+    for bad in ("x", "-1", "1.5"):
+        assert atlas.search({"request": {"query": "lighthouse", "media_type": "book", "cursor": bad}}) == {
+            "failure": {"code": "invalid_response"}}
+    assert gateway.calls == []
+
+
+def test_a_search_cursor_past_the_results_atlas_just_answered_is_rejected(atlas, monkeypatch):
+    Gateway(monkeypatch, routes={"/api/v2/games": {"status": 200, "data": {"results": [BOOK]}}})
+    assert atlas.search({"request": {"query": "lighthouse", "media_type": "book", "cursor": "5"}}) == {
+        "failure": {"code": "invalid_response"}}
+
+
 # --- metadata: the section 6.5 mapping ---
 
 def test_a_book_record_maps_to_the_book_patch(atlas, monkeypatch):
