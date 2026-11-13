@@ -164,16 +164,47 @@ def search(values):
     if typed:
         # A host that predates the `isbn` option sends the ISBN as text: still an identifier lookup.
         return {"candidates": isbn_candidates(client, typed)}
-    page = int(work.get("cursor") or 1)
-    if not 1 <= page <= MAX_SEARCH_PAGES:
-        raise ProviderFailure("invalid_response")
+    page, page_offset = decode_cursor(work.get("cursor"))
     limit = max(1, min(int(work.get("limit", 20)), 50))
     data = client.get("/search.json", q=work["query"], fields=SEARCH_FIELDS, limit=limit, page=page)
     docs = data.get("docs") if isinstance(data.get("docs"), list) else []
-    candidates = [found for found in map(search_candidate, docs) if found]
+    if page_offset > len(docs):
+        raise ProviderFailure("invalid_response")
+    indices, candidates = [], []
+    for index, doc in enumerate(docs[page_offset:], start=page_offset):
+        found = search_candidate(doc)
+        if found:
+            indices.append(index)
+            candidates.append(found)
+    found_count = len(indices)
     total = books.bounded_int(data.get("numFound"), 0, 10**9) or 0
-    more = page < MAX_SEARCH_PAGES and page * limit < total and len(docs) == limit
-    return fit_search({"candidates": candidates, "next_cursor": str(page + 1) if more else None})
+    result = fit_search({"candidates": candidates})
+    kept = len(result["candidates"])
+    # every candidate found on this page fit: the rest of the page (including any unusable trailing docs) is
+    # spent. Otherwise resume right at the first one the trim cut, so it is retried rather than skipped.
+    consumed = len(docs) if kept == found_count else indices[kept]
+    if consumed < len(docs):
+        result["next_cursor"] = encode_cursor(page, consumed)
+    else:
+        more = page < MAX_SEARCH_PAGES and page * limit < total and len(docs) == limit
+        result["next_cursor"] = encode_cursor(page + 1, 0) if more else None
+    return result
+
+
+def decode_cursor(value):
+    """``(page, offset)``: the Open Library page to fetch, and how far into its (already fetched) docs to resume
+    from. Plain ``"<page>"`` for a fresh page; ``"<page>:<offset>"`` when a previous call on that page had to
+    defer candidates to stay under the output limit."""
+    text = str(value) if value not in (None, "") else "1"
+    page_text, _, offset_text = text.partition(":")
+    page, offset = int(page_text), int(offset_text or 0)
+    if not 1 <= page <= MAX_SEARCH_PAGES or offset < 0:
+        raise ProviderFailure("invalid_response")
+    return page, offset
+
+
+def encode_cursor(page, offset):
+    return f"{page}:{offset}" if offset else str(page)
 
 
 def fit_search(result):
