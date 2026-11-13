@@ -24,7 +24,15 @@ try {
   const base = `http://127.0.0.1:${port}`;
   await waitForServer(base);
   browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
-  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, colorScheme: "dark" });
+  // Pinned to a non-US locale/timezone so the host's one-time date-format
+  // offer modal (shown to browsers that look American) never intercepts
+  // clicks meant for this installed-preview UI under test.
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 1000 },
+    colorScheme: "dark",
+    locale: "en-GB",
+    timezoneId: "Europe/London",
+  });
   assert((await context.request.post(`${base}/api/auth/login`, { data: { username_or_email: process.env.PRIMARY_USER_USERNAME, password: process.env.PRIMARY_USER_PASSWORD } })).ok());
   // Capture a returning account; first-login appearance has separate host coverage.
   const preferences = await context.request.get(`${base}/api/preferences`);
