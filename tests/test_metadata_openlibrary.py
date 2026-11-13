@@ -387,7 +387,11 @@ def test_metadata_stays_under_the_action_output_limit(openlibrary, monkeypatch):
 def test_search_stays_under_the_action_output_limit(openlibrary, monkeypatch):
     """Open Library records are user-editable: a page of 50 works with 500-character titles and subtitles and 30
     long author names each would exceed the runtime's 64 KiB limit. Alternate titles go first, then candidates
-    from the end; author lists are never shortened (metadata stores the selected candidate's authors)."""
+    from the end; author lists are never shortened (metadata stores the selected candidate's authors).
+
+    [P2] olie-ob's #114 review, reproduced: the dropped candidates must stay reachable through `next_cursor`
+    (page 1 returned 9 of 50 works with the old cursor "2", which then skipped straight to page 2 and lost the
+    other 41). The cursor now carries the position within the upstream page."""
     docs = [{"key": f"/works/OL9{n:08d}W", "title": f"{n:03d} " + "T" * 240, "subtitle": "S" * 240,
              "author_name": [f"{a:02d} " + "A" * 190 for a in range(30)], "first_publish_year": 2001}
             for n in range(50)]
@@ -398,11 +402,38 @@ def test_search_stays_under_the_action_output_limit(openlibrary, monkeypatch):
     assert 0 < len(candidates) < 50
     assert [item["title"][:3] for item in candidates] == [f"{n:03d}" for n in range(len(candidates))]
     assert all(len(item["authors"]) == 30 and "alternate_titles" not in item for item in candidates)
-    assert result["next_cursor"] == "2"
+    assert result["next_cursor"] == f"1:{len(candidates)}"
     # a page under the limit is untouched
     small = {"candidates": [{"title": "x", "alternate_titles": ["x: y"]}], "next_cursor": None}
     assert openlibrary.fit_search(small) == {"candidates": [{"title": "x", "alternate_titles": ["x: y"]}],
                                              "next_cursor": None}
+
+
+def test_a_trimmed_search_page_is_followed_to_every_candidate_exactly_once(openlibrary, monkeypatch):
+    """[P2] olie-ob's #114 review: following `next_cursor` like the host does must eventually reach every one of
+    the 50 works this (oversized) upstream page held, each exactly once, before moving on to the next page."""
+    docs = [{"key": f"/works/OL9{n:08d}W", "title": f"{n:03d} " + "T" * 240, "subtitle": "S" * 240,
+             "author_name": [f"{a:02d} " + "A" * 190 for a in range(30)], "first_publish_year": 2001}
+            for n in range(50)]
+    gateway = Gateway(monkeypatch, overrides={"/search.json": {"status": 200, "data": {"numFound": 50, "docs": docs}}})
+    seen, cursor = [], None
+    for _ in range(50):  # a generous bound: this must terminate long before, or something is looping
+        request = {"query": "anthology", "media_type": "book", "limit": 50}
+        if cursor is not None:
+            request["cursor"] = cursor
+        page = valid(openlibrary.search({"request": request}))
+        assert len(json.dumps(page, ensure_ascii=False).encode()) <= openlibrary.RESULT_BYTES
+        seen += page["candidates"]
+        cursor = page.get("next_cursor")
+        if cursor is None:
+            break
+    else:
+        raise AssertionError("next_cursor never ran out")
+    assert [item["title"][:3] for item in seen] == [f"{n:03d}" for n in range(50)]
+    assert len({item["external_id"] for item in seen}) == 50
+    # every call asked Open Library for the same (first) upstream page: the cursor never invents a page the
+    # upstream search does not have
+    assert all(parse_qs(urlsplit(call["url"]).query)["page"] == ["1"] for call in gateway.calls)
 
 
 # --- media, health, failures and identification -------------------------------------------------------------------
@@ -441,7 +472,7 @@ def test_contact_identifies_the_client_only_when_an_administrator_sets_it(openli
     # only visible ASCII: control characters, DEL, NEL, U+2028 and other non-ASCII characters are refused here as
     # a configuration error rather than failing every request in the host's HTTP layer
     for bad in ("not a contact", "x@y; z", "http://insecure.example", "a@b\r\nX-Injected: 1", "a@b\x00c",
-                "a@b\x85c", "a@b c", "https://x\x7f", "https://exämple.test", "bücher@example.test",
+                "a@b\x85c", "a@b c", "https://x\x7f", "https://exämple.test", "bücher@example.test",
                 "a@b\tc"):
         Gateway(monkeypatch, contact=bad)
         assert openlibrary.search({"request": {"query": "lighthouse", "media_type": "book"}}) == {
