@@ -3,4 +3,6 @@ cryptography>=50,<51
 jsonschema>=4.23,<5
 pydantic>=2,<3
 Pillow>=12,<14
+# tools/check_metadata_atlas_host.py runs the host's refresh decision, which imports SQLAlchemy's asyncio API
+sqlalchemy[asyncio]>=2,<3
 -r wiki/docs/requirements.txt

@@ -163,7 +163,9 @@ def test_resolve_by_steam_id_uses_a_crosswalk_and_returns_the_record(plugin, gat
     cand = selected(plugin, title="Anything the host remembered", year=2021, provider_ids={"steam": "5001"})
     result = plugin.metadata({"request": {}, "candidate": cand})
     assert result["metadata"]["provider_ids"]["atlas"] == seeded.ids["starlight"]
-    assert gateway.paths() == ["/resolve"] and gateway.calls[0].method == "POST"
+    # the second read fetches the relations block, which only GET /games/{id} carries (C6.3)
+    assert gateway.paths() == ["/resolve", "/games/" + seeded.ids["starlight"]]
+    assert [call.method for call in gateway.calls] == ["POST", "GET"]
 
 
 def test_resolve_by_exact_title_and_year_is_accepted_as_certain(plugin, gateway, seeded):
@@ -281,7 +283,8 @@ def test_fixture_case_through_the_plugin(plugin, gateway, atlas_api, seeded, con
             if want["reason"] in ("id", "redirect"):
                 assert record["id"] == want["canonical_id"]
         return
-    assert gateway.paths() == ["/resolve"]
+    # an adopted record is read once more for its relations block (C6.3), which /resolve does not include
+    assert gateway.paths() == ["/resolve"] + (["/games/" + want["canonical_id"]] if result else [])
     assert bool(result) is (want["reason"] in SAFE_REASONS), (case["name"], result)
     if result:
         assert result["metadata"]["provider_ids"]["atlas"] == want["canonical_id"]
@@ -310,6 +313,8 @@ def test_a_merged_atlas_id_is_followed_to_the_live_record_for_metadata_artwork_a
     meta = plugin.metadata({"request": {}, "candidate": cand})["metadata"]
     assert meta["provider_ids"]["atlas"] == live and meta["provider_ids"]["steam"] == "5401"
     assert meta["links"][0]["url"] == f"{seeded.public}/game/{live}"
+    # the merged-away id travels only as the id the host should follow (C4.4 rule 2)
+    assert meta.pop("identity") == {"match": "redirect", "previous_ids": {"atlas": old}}
     assert old not in json.dumps(meta)
     assets = plugin.media({"request": {}, "candidate": cand})["assets"]
     assert [a["kind"] for a in assets] == ["logo"]
@@ -328,7 +333,9 @@ def test_a_provider_id_of_a_merged_record_resolves_to_the_live_id(plugin, gatewa
     atlas_api.ok("POST", f"/games/{b}/merge", admin, {"into": c})
     cand = selected(plugin, title="Chain Alpha Field", year=2015, provider_ids={"steam": "5411"})
     assert plugin.metadata({"request": {}, "candidate": cand})["metadata"]["provider_ids"]["atlas"] == c
-    assert plugin.metadata({"request": {}, "candidate": selected(plugin, a)})["metadata"]["provider_ids"]["atlas"] == c
+    by_old_id = plugin.metadata({"request": {}, "candidate": selected(plugin, a)})["metadata"]
+    assert by_old_id["provider_ids"]["atlas"] == c
+    assert by_old_id["identity"] == {"match": "redirect", "previous_ids": {"atlas": a}}
 
 
 def test_a_renamed_record_is_found_by_its_provider_id_and_not_by_its_old_title(plugin, gateway, atlas_api, seeded):
@@ -374,12 +381,54 @@ def test_after_a_rename_the_old_title_is_found_by_the_new_name_not_as_an_alias(p
     assert plugin.metadata({"request": {}, "candidate": cand})["metadata"]["provider_ids"]["atlas"] == cid
 
 
-@KNOWN_ISSUE
-def test_KNOWN_ISSUE_atlas_86_a_child_edition_or_dlc_names_its_parent(plugin, gateway, seeded):
-    """Atlas #86: there are no relationships between records, so the 'Night Expansion' of 'Orbit Garden' reaches the
-    host as an unrelated game. The host already accepts ``relations`` on a metadata patch. Flip when it is sent."""
-    meta = plugin.metadata({"request": {}, "candidate": selected(plugin, seeded.ids["orbit_dlc"])})["metadata"]
-    assert "relations" in meta, sorted(meta)
+def relate(atlas_api, seeded, child, parent, kind="dlc_of"):
+    """Give `child` the relation `kind` to `parent` through Atlas's curate API (C6.3). False when the Atlas under test
+    predates relations (A15): it has no such route, and its records carry no relations block."""
+    status, payload = atlas_api.request("PUT", f"/games/{child}/relations", seeded.admin_token,
+                                        {"relations": [{"to": parent, "type": kind}]})
+    if status in (404, 405):
+        assert "relations" not in atlas_view(atlas_api, seeded, child)
+        return False
+    assert status == 200, (status, payload)
+    assert [(p["id"], p["type"]) for p in payload["relations"]["parents"]] == [(parent, kind)]
+    return True
+
+
+def test_a_dlc_names_its_parent_game_as_a_relation(plugin, gateway, atlas_api, seeded, monkeypatch):
+    """Atlas #86 / C6.4: the 'Night Expansion' of 'Orbit Garden' reaches the host as a `dlc_of` relation whose target
+    is the base game's Atlas id, found by Atlas id and by its Steam id (through /resolve) alike. The base game itself
+    only has an incoming relation, which travels with the DLC's refresh."""
+    dlc, base = seeded.ids["orbit_dlc"], seeded.ids["orbit"]
+    if not relate(atlas_api, seeded, dlc, base):
+        assert "relations" not in details(plugin, dlc)
+        return
+    title = atlas_view(atlas_api, seeded, base)["title"]  # the base record's merged title, as Atlas lists it
+    expected = [{"candidate": {"provider": plugin.PROVIDER_ID, "external_id": base, "title": title,
+                               "media_type": "game", "provider_ids": {"atlas": base}},
+                 "relation": "dlc_of", "group": "related"}]
+    assert details(plugin, dlc)["relations"] == expected
+    by_steam = selected(plugin, title="Orbit Garden - Night Expansion", year=2021, provider_ids={"steam": "5004"},
+                        media_type="game")
+    result = plugin.metadata({"request": {}, "candidate": by_steam})
+    jsonschema.validate(result, RESPONSE_SCHEMA)
+    assert result["metadata"]["provider_ids"]["atlas"] == dlc and result["metadata"]["relations"] == expected
+    assert "relations" not in details(plugin, base), "children are the other record's edges"
+    monkeypatch.setattr(plugin, "API_CONTRACT", (1, 1, 19))
+    assert "relations" not in details(plugin, dlc)
+
+
+def test_relations_follow_a_merge_of_the_parent(plugin, gateway, atlas_api, seeded):
+    """C6.3 merges move edges: when the parent is merged into another record, the relation names the survivor."""
+    admin = seeded.admin_token
+    child = atlas_api.observe(admin, "steamlike", "RM-1", "Tidal Rooms - Deep Wing", "2024-04-04")
+    parent = atlas_api.observe(admin, "steamlike", "RM-2", "Tidal Rooms", "2023-03-03")
+    survivor = atlas_api.observe(admin, "gogish", "RM-3", "Rooms of the Tide", "2023-03-04")
+    assert len({child, parent, survivor}) == 3
+    if not relate(atlas_api, seeded, child, parent):
+        return
+    atlas_api.ok("POST", f"/games/{parent}/merge", admin, {"into": survivor})
+    [sent] = details(plugin, child)["relations"]
+    assert (sent["relation"], sent["candidate"]["external_id"]) == ("dlc_of", survivor)
 
 
 # --- achievements ------------------------------------------------------------------------------------------------

@@ -477,6 +477,9 @@ jobs:
             # The Atlas plugin at Plugin API 1.1.20 (dates, platinum, aliases) needs the 1.1.20 host.
             elif [ "$COMPANION_BRANCH" = "programme/p3-dates-platinum-api-1120" ]; then
               candidate_branch="programme/m7-plugin-api-1120"
+            # Game relations (C6.4) are read by the 1.1.20 host's provider_relations.
+            elif [ "$COMPANION_BRANCH" = "programme/p5-relations-editions" ]; then
+              candidate_branch="programme/m7-plugin-api-1120"
             fi
             if [ "$candidate_branch" != main ] && git ls-remote --exit-code --heads https://github.com/Unbound-Timeline-Shelf/Unbound-Timeline-Shelf.git "refs/heads/$candidate_branch" >/dev/null; then
               encoded_branch="$(printf '%s' "$candidate_branch" | jq -sRr @uri)"
@@ -500,7 +503,7 @@ jobs:
       - run: python tools/check_host_contract.py --host-root .validation/host
         if: needs.gate.outputs.full_tests == 'true'
       # The Atlas plugin's real responses, held to the host's own validator under both contract declarations.
-      - run: python tools/check_metadata_atlas_host.py --host-root .validation/host
+      - run: python tools/check_metadata_atlas_host.py --host-root .validation/host --require-decision
         if: needs.gate.outputs.full_tests == 'true'
       - name: Select existing mobile PWA source ref
         if: needs.gate.outputs.full_tests == 'true'

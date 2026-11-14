@@ -220,12 +220,101 @@ def release_fields(record):
     return out
 
 
+# The host's `provider_ids` (MetadataCandidate and MetadataPatch): at most 32 keys that start with a letter or digit,
+# values of 1-512 characters. Atlas lists every namespace its sources claim, so one record can hold more, and its
+# own namespace rule also allows a leading ".", "-" or "_".
+HOST_ID_KEY = re.compile(r"[a-z0-9][a-z0-9._-]{0,127}", re.ASCII)
+HOST_ID_LIMIT, HOST_ID_LENGTH = 32, 512
+# Store and catalogue namespaces that name a game (or show) for the host and the person, in the order they are kept
+# when a record claims more namespaces than the host's 32: Atlas's own store list (`integrations.STORES`), the
+# console stores it scopes by platform, then the anime, film and TV catalogues. Everything else follows, sorted.
+WELL_KNOWN_NAMESPACES = ("steam", "igdb", "gog", "epic", "rawg", "itch", "tgdb", "psn", "playstation", "xbox",
+                         "microsoft", "nintendo", "anilist", "mal", "kitsu", "anidb", "tmdb", "imdb", "tvdb",
+                         "tvmaze")
+NAMESPACE_RANK = {name: index for index, name in enumerate(WELL_KNOWN_NAMESPACES)}
+
+
+def _namespace_order(key):
+    return (NAMESPACE_RANK.get(key, len(NAMESPACE_RANK)), key)
+
+
+def record_provider_ids(record):
+    """The record's provider ids as the host accepts them, at most 32 in all: `atlas` first, then the well-known
+    store and catalogue namespaces (WELL_KNOWN_NAMESPACES order), then the others in sorted order, so a record whose
+    sources claim many obscure namespaces never loses its Steam or IGDB id to the cut. A value that is not a string
+    or an integer, or does not fit, is left out (it was sent as ``str(value)`` before, so ``None`` became the id
+    "None" and one bad value made the whole response invalid)."""
+    ids = {"atlas": record["id"]}
+    raw = record.get("provider_ids")
+    for key in sorted((key for key in raw if isinstance(key, str)), key=_namespace_order) \
+            if isinstance(raw, dict) else []:
+        value = raw[key]
+        if key == "atlas" or not HOST_ID_KEY.fullmatch(key) or isinstance(value, bool) \
+                or not isinstance(value, (str, int)):
+            continue
+        value = str(value)
+        if 0 < len(value) <= HOST_ID_LENGTH:
+            ids[key] = value
+            if len(ids) == HOST_ID_LIMIT:
+                break
+    return ids
+
+
 def candidate(record, media_type="game"):
     media_type = record.get("media_type") if record.get("media_type") in MEDIA_TYPES else media_type
-    ids = {"atlas": record["id"], **{key: str(value) for key, value in (record.get("provider_ids") or {}).items()
-                                   if key != "atlas"}}
     return {"provider": PROVIDER_ID, "external_id": record["id"], "title": record["title"],
-            "media_type": media_type, "provider_ids": ids, "year": release_year(record)}
+            "media_type": media_type, "provider_ids": record_provider_ids(record), "year": release_year(record)}
+
+
+# Contract C6.2/C6.4: Atlas's relations block (GET /games/{id}, Atlas A15) as MetadataPatch.relations for a game.
+# `parents` and `members_of` are this record's own edges (this -> parent, series or collection); `children` and
+# `members` are other records' edges to this one and reach the host with those records' refreshes.
+OUTGOING_RELATIONS = ("parents", "members_of")
+# A host refresh considers at most 64 relations per result; Atlas allows 200 outgoing relations per record.
+RELATION_LIMIT = 64
+RELATION_ORDER = {kind: index for index, kind in enumerate(vocab.RELATION_TYPES)}
+# What an unknown relation type may look like in the log (no titles, nothing else from the server).
+LOGGED_TYPE = re.compile(r"[a-z][a-z0-9_]{0,31}", re.ASCII)
+MAX_TITLE = 512
+
+
+def game_relations(record):
+    """The record's outgoing relations in the shared vocabulary, ordered by type (vocabulary order) then Atlas id.
+
+    Only under Plugin API 1.1.20: before it a vocabulary relation had no defined direction and the host does not
+    ingest it. The target is named by its Atlas id (the host resolves it through the game that holds that id, or
+    keeps it waiting). An unknown type (`edition_of`, `bundle_contains`, anything newer) is left out and logged;
+    a malformed entry is left out. An Atlas without relations (before A15) sends none."""
+    block = record.get("relations")
+    if not sends_releases() or not isinstance(block, dict):
+        return []
+    own = record.get("id")
+    found, unknown = {}, set()
+    for name in OUTGOING_RELATIONS:
+        items = block.get(name)
+        for item in items if isinstance(items, list) else []:
+            if not isinstance(item, dict):
+                continue
+            kind, target, title = item.get("type"), item.get("id"), item.get("title")
+            if not isinstance(kind, str) or kind not in RELATION_ORDER:
+                if isinstance(kind, str):
+                    unknown.add(kind if LOGGED_TYPE.fullmatch(kind) else "?")
+                continue
+            title = " ".join(title.split()) if isinstance(title, str) else ""
+            if not (isinstance(target, str) and ATLAS_ID.fullmatch(target)) or target == own \
+                    or not 0 < len(title) <= MAX_TITLE:
+                continue
+            found.setdefault((kind, target), title)
+    if unknown:
+        print("Atlas reported relation types this plugin does not know (" + ", ".join(sorted(unknown)[:8])
+              + "); they were not sent.", file=sys.stderr, flush=True)
+    ordered = sorted(found, key=lambda key: (RELATION_ORDER[key[0]], key[1]))
+    if len(ordered) > RELATION_LIMIT:
+        print(f"Atlas reported {len(ordered)} relations for one record; the first {RELATION_LIMIT} were sent.",
+              file=sys.stderr, flush=True)
+    return [{"candidate": {"provider": PROVIDER_ID, "external_id": target, "title": found[(kind, target)],
+                           "media_type": "game", "provider_ids": {"atlas": target}},
+             "relation": kind, "group": "related"} for kind, target in ordered[:RELATION_LIMIT]]
 
 
 @operation
@@ -322,13 +411,14 @@ def patch(record):
         and not any(c.isspace() for c in website) else [],
         "scores": scores,
         "custom": custom_values(record, media_type),
-        "provider_ids": candidate(record, media_type)["provider_ids"],
+        "provider_ids": record_provider_ids(record),
     }
     if media_type == "game":
         out.update({
             "developer": record.get("developer"), "publisher": record.get("publisher"),
             "series": record.get("series"), "features": record.get("features") or [],
             "platforms": record.get("platforms") or [], **group_play(record),
+            "relations": game_relations(record),
         })
     elif media_type == "movie":
         out["director"] = record.get("developer")
@@ -412,26 +502,85 @@ def report_conflict(result):
           "was adopted. A curator can settle it in the Atlas review queue.", file=sys.stderr, flush=True)
 
 
+# What Atlas's `POST /resolve` validates (`ResolveItem`): namespaces `[a-z0-9._-]{1,50}`, ids of 1-256 characters,
+# at most 32 of them, and a title of at most 500 characters. Anything larger is answered 422 for the whole request.
+RESOLVE_KEY = re.compile(r"[a-z0-9._-]{1,50}", re.ASCII)
+RESOLVE_ID_LIMIT, RESOLVE_ID_LENGTH, RESOLVE_TITLE_LENGTH = 32, 256, 500
+
+
+def resolve_ids(selected):
+    """The candidate's identifiers that are identity evidence for Atlas, within Atlas's limits, in sorted order.
+
+    The host lists a candidate's own identity under its *provider id* as well as under the namespace (for a library
+    game that is ``local``, whose value is the title): that key is not a namespace and is left out. The Atlas id is
+    looked up directly, never through /resolve."""
+    raw = selected.get("provider_ids")
+    own = selected.get("provider")
+    ids = {}
+    for key in sorted(key for key in raw if isinstance(key, str)) if isinstance(raw, dict) else []:
+        value = raw[key]
+        if key in {"atlas", own} or not RESOLVE_KEY.fullmatch(key) or not isinstance(value, str) \
+                or not 0 < len(value) <= RESOLVE_ID_LENGTH:
+            continue
+        ids[key] = value
+        if len(ids) == RESOLVE_ID_LIMIT:
+            break
+    return ids
+
+
 def resolve(values, selected):
     """Find the Atlas record for a candidate that only carries other providers' identifiers.
 
     Contract C4.3: a conflicting, ambiguous, cross-type or fuzzy answer is not an identity, so it yields None."""
-    item = {key: value for key, value in {
-        "title": selected.get("title"),
-        "release_date": str(selected["year"]) if selected.get("year") else None,
-        "media_type": selected.get("media_type", "game"),
-        "provider_ids": {key: value for key, value in (selected.get("provider_ids") or {}).items()
-                         if key != "atlas" and re.fullmatch(r"[a-z0-9._-]{1,50}", key)} or None,
-    }.items() if value}
-    if not item:
+    return resolve_match(values, selected)[0]
+
+
+# Contract C4.4 (Plugin API 1.1.20): the identity verdicts the plugin reports with a patch it returns. `conflict` and
+# `ambiguous` answers return no patch (C4.3, P2), so they are not reported here.
+IDENTITY_MATCHES = {"id", "redirect", "crosswalk", "exact"}
+
+
+def identity_verdict(match, previous=None):
+    """`MetadataPatch.identity` for a record the plugin adopted, or None.
+
+    `previous` is the Atlas id the lookup named when Atlas served another, live record for it (a merge, C4.2): the
+    host then rewrites the id it saved to the live one (C4.4 rule 2) instead of keeping the merged-away id and
+    depending on Atlas's redirect. Only under a declared contract >= 1.1.20; an older host refuses the field."""
+    if not sends_releases() or match not in IDENTITY_MATCHES:
         return None
+    verdict = {"match": match}
+    if isinstance(previous, str) and ATLAS_ID.fullmatch(previous):
+        verdict["previous_ids"] = {"atlas": previous}
+    return verdict
+
+
+def resolve_match(values, selected):
+    """`resolve` plus the identity verdict of the answer: ``(record, verdict)``, ``(None, None)`` when nothing was
+    adopted."""
+    title = selected.get("title")
+    evidence = {key: value for key, value in {
+        # a shortened title would name another game, so an over-long one is not sent at all
+        "title": title if isinstance(title, str) and len(title) <= RESOLVE_TITLE_LENGTH else None,
+        "provider_ids": resolve_ids(selected) or None,
+    }.items() if value}
+    if not evidence:
+        return None, None
+    item = {**evidence, "media_type": selected.get("media_type", "game")}
+    if selected.get("year"):
+        item["release_date"] = str(selected["year"])
     data = call(values, "/resolve", method="POST", body={"items": [item], "include_view": True})
     results = data.get("results")
     result = results[0] if isinstance(results, list) and results and isinstance(results[0], dict) else {}
     if result.get("reason") == "conflict" or result.get("conflict"):
         report_conflict(result)
-        return None
-    return result.get("game") if adopted(result) else None
+        return None, None
+    if not adopted(result):
+        return None, None
+    game = result.get("game")
+    # An Atlas without `reason` (before C4) names the match in `method` (`crosswalk` or `exact`). `/resolve` runs
+    # only for a candidate without an Atlas id, so a `redirected_from` here is not an id the host holds and is not
+    # sent as `previous_ids` (C4.4 rule 2 names the game's current id there).
+    return game, identity_verdict(result.get("reason") or result.get("method"))
 
 
 def locate(values, selected):
@@ -441,21 +590,44 @@ def locate(values, selected):
     (contract C4.2). Everything built from the record (provider_ids.atlas, the Atlas link, artwork and
     achievement requests) uses the record's own, live id, so the host learns the new id. A redirect that does
     not end on a well-formed Atlas id is refused."""
+    return locate_match(values, selected)[0]
+
+
+def locate_match(values, selected):
+    """`locate` plus the identity verdict (C4.4): ``(record, verdict)``, ``(None, None)`` when nothing matched.
+
+    A lookup by the Atlas id the host holds is `id`, or `redirect` with that id in `previous_ids` when Atlas served
+    the live record it was merged into; a `/resolve` lookup reports Atlas's own reason."""
     identity = external_id(selected, PROVIDER_ID, "atlas")
     if identity and not ATLAS_ID.match(identity):
-        return None
+        return None, None
     try:
-        record = call(values, "/games/" + quote(identity, safe=":")) if identity else resolve(values, selected)
+        if identity:
+            record = call(values, "/games/" + quote(identity, safe=":"))
+            live = record.get("id")
+            if live == identity:
+                verdict = identity_verdict("id")
+            elif record.get("redirected_from") == identity:
+                verdict = identity_verdict("redirect", identity)
+            elif record.get("redirected_from") is not None:
+                # a redirect from an id the host did not ask for: Atlas did not vouch that this id moved, so the
+                # record is not adopted and no verdict could make the host rewrite its saved id
+                return None, None
+            else:
+                # another record without a redirect: not a move Atlas vouched for, so the host is told nothing
+                verdict = None
+        else:
+            record, verdict = resolve_match(values, selected)
         expected_type = selected.get("media_type", "game")
         if record and record.get("media_type", "game") != expected_type:
-            return None
+            return None, None
         if record and record.get("redirected_from") is not None and not (
                 isinstance(record.get("id"), str) and ATLAS_ID.fullmatch(record["id"])):
-            return None
-        return record
+            return None, None
+        return record, verdict
     except ProviderFailure as exc:
         if exc.status == 404:
-            return None
+            return None, None
         raise
 
 
@@ -627,20 +799,44 @@ def achievement_cursor(request):
     return int(cursor)
 
 
+def with_relations(values, record):
+    """The record a /resolve answer named, with the relations block that only `GET /games/{id}` carries (C6.3).
+
+    Without it a game the host knows by its Steam or IGDB id would get no relations, while the same game known by its
+    Atlas id would. The block is taken only from the same live record; when the read fails, or a merge between the
+    two reads answers with another record, the resolved view is used as it is (no relations, nothing else lost)."""
+    identity = record.get("id")
+    if not isinstance(identity, str) or not ATLAS_ID.fullmatch(identity):
+        return record
+    try:
+        full = call(values, "/games/" + quote(identity, safe=":"))
+    except ProviderFailure:
+        return record
+    if full.get("id") != identity or full.get("redirected_from") is not None or "relations" not in full:
+        return record
+    return {**record, "relations": full["relations"]}
+
+
 @operation
 def metadata(values):
     selected = values["candidate"]
     media_type = selected.get("media_type", "game")
     if media_type not in MEDIA_TYPES:
         return {}
-    record = locate(values, selected)
+    record, verdict = locate_match(values, selected)
     if not record or not record.get("title"):
         return {}
     if values["request"].get("resource") == "achievements":
         if media_type != "game":
             return {}
         return achievement_catalogue(values, record, achievement_cursor(values["request"]))
+    if media_type == "game" and sends_releases() and "relations" not in record \
+            and not external_id(selected, PROVIDER_ID, "atlas"):
+        record = with_relations(values, record)
     result = patch(record)
+    if verdict and result:
+        # C4.4: how the record was found, and the merged-away id the host should follow (rule 2)
+        result["identity"] = verdict
     identity = record.get("id")
     if isinstance(identity, str) and ATLAS_ID.fullmatch(identity):
         root = public_base_url()
