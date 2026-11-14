@@ -126,5 +126,5 @@
   "title": "MetadataProviderRequest",
   "type": "object",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "x-api-contract-version": "1.1.19"
+  "x-api-contract-version": "1.1.20"
 }

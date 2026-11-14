@@ -4,8 +4,11 @@ import json
 import re
 import sys
 import time
+from datetime import date
+from pathlib import Path
 from urllib.parse import quote, urlencode, urlsplit
 
+import vocab
 from sdk.metadata_provider import ProviderFailure, ProviderHttp, external_id, operation, provider_values, register
 
 PROVIDER_ID = "official.metadata-atlas.atlas"
@@ -29,6 +32,46 @@ ADOPTED_REASONS = {"id", "redirect", "crosswalk", "exact"}
 # An Atlas that predates `reason` (before contract C4) only has `method`; it counts when it names a certain match
 # and the answer carries no `conflict`.
 CONFIDENT_MATCHES = {"crosswalk", "exact"}
+
+# Plugin API 1.1.20 (host contract C5.3, C2.6, C7.1) added `first_release`, `releases`, achievement `aliases` and
+# the `platinum` tier. The host validates a response against the contract the manifest declares and refuses the
+# whole response when it carries a field or value that contract does not have.
+RELEASES_CONTRACT = (1, 1, 20)
+
+
+def declared_contract():
+    """The Plugin API contract this package declares in its own manifest, or None when it cannot be read.
+
+    It is the version the host validates our responses against, and a host older than it refuses to install
+    the package, so it is the feature switch: nothing newer is sent under an older declaration."""
+    try:
+        manifest = json.loads(Path(__file__).with_name("manifest.json").read_text(encoding="utf-8"))
+        parts = manifest["api_contract_version"].split(".")
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return None
+    if len(parts) != 3 or not all(part.isascii() and part.isdigit() for part in parts):
+        return None
+    return tuple(int(part) for part in parts)
+
+
+API_CONTRACT = declared_contract()
+
+
+def sends_releases():
+    """Whether the 1.1.20 fields and values may be sent. An unreadable declaration counts as older."""
+    return API_CONTRACT is not None and API_CONTRACT >= RELEASES_CONTRACT
+
+
+# C5.1 dates: "YYYY", "YYYY-MM" or "YYYY-MM-DD" (ASCII digits); the precision always equals the shape.
+PARTIAL_DATE = re.compile(r"\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?", re.ASCII)
+DATE_SHAPES = {4: "year", 7: "month", 10: "day"}
+# The years the host accepts: year and month values follow C5.1 (1950-2100); a day keeps the host's general
+# range (1800-3000), which is also the range of the legacy `year` field.
+PARTIAL_YEARS = (1950, 2100)
+DAY_YEARS = (1800, 3000)
+MAX_RELEASES = 5
+RELEASE_REGION = re.compile(r"(ww|eu|na|asia|oce|latam|[a-z]{2})", re.ASCII)
+MAX_RELEASE_PLATFORM, MAX_RELEASE_EDITION = 128, 100
 
 
 def base_url(values):
@@ -59,13 +102,130 @@ def call(values, path, **options):
     return data
 
 
+def partial_date(value, precision=None):
+    """``(value, precision)`` for a C5.1 date the host accepts, else None. Nothing is guessed or padded:
+    "2011" stays a year and is never sent as 1 January."""
+    if not isinstance(value, str) or not PARTIAL_DATE.fullmatch(value):
+        return None
+    shape = DATE_SHAPES[len(value)]
+    if shape not in vocab.DATE_PRECISIONS or precision not in (None, shape):
+        return None
+    if shape == "day":
+        try:
+            date.fromisoformat(value)
+        except ValueError:
+            return None
+    low, high = DAY_YEARS if shape == "day" else PARTIAL_YEARS
+    return (value, shape) if low <= int(value[:4]) <= high else None
+
+
+def legacy_day(record):
+    """Atlas's legacy `release_date` when it is a real calendar day, else None.
+
+    The key is day-only from Atlas contract C5.2 on, but an older Atlas can serve a curator lock in it ("2011",
+    "2011-04", "TBA"). The host's `release_date` is a date, so anything else would fail the whole response."""
+    value = record.get("release_date")
+    if not isinstance(value, str) or len(value) != 10 or not PARTIAL_DATE.fullmatch(value):
+        return None
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        return None
+    return value
+
+
+def first_release(record):
+    """The record's first release as ``{"date", "precision"}`` (Atlas view key `first_release`), or None.
+
+    An Atlas that predates partial dates has no `first_release`; a partial value it serves in the legacy
+    `release_date` key (a curator lock such as "2011") is used instead. A malformed value is ignored."""
+    first = record.get("first_release")
+    if isinstance(first, dict):
+        found = partial_date(first.get("date"), first.get("precision"))
+    elif first is None and legacy_day(record) is None:
+        found = partial_date(record.get("release_date"))
+    else:
+        found = None
+    return {"date": found[0], "precision": found[1]} if found else None
+
+
+def release_year(record):
+    """The year of the first release (at any precision), else of the legacy day, inside the host's year range."""
+    first = first_release(record)
+    value = first["date"] if first else legacy_day(record)
+    year = int(value[:4]) if value else None
+    return year if year is not None and DAY_YEARS[0] <= year <= DAY_YEARS[1] else None
+
+
+def _release_text(value, limit):
+    """An optional one-line release field: None when absent, False when present but unusable."""
+    if value is None or value == "":
+        return None
+    if not isinstance(value, str):
+        return False
+    text = " ".join(value.split())
+    return text if 0 < len(text) <= limit and text.isprintable() else False
+
+
+def releases(record):
+    """Atlas's release entries (view key `releases`, C5.1) that the host accepts, in Atlas's order, at most five.
+
+    An entry with an unusable field is left out rather than altered (a shortened platform or edition would name a
+    different entry). Entries are unique on (platform, region, edition, category), compared as Atlas compares them
+    (platform and edition case-insensitively), which is stricter than the host's exact comparison."""
+    raw = record.get("releases")
+    out, seen = [], set()
+    for item in raw if isinstance(raw, list) else []:
+        if not isinstance(item, dict):
+            continue
+        found = partial_date(item.get("date"), item.get("precision"))
+        category = item.get("category", "full")
+        platform = _release_text(item.get("platform"), MAX_RELEASE_PLATFORM)
+        edition = _release_text(item.get("edition"), MAX_RELEASE_EDITION)
+        region = item.get("region")
+        if not found or category not in vocab.RELEASE_CATEGORIES or platform is False or edition is False:
+            continue
+        if region not in (None, "") and not (isinstance(region, str) and RELEASE_REGION.fullmatch(region)):
+            continue
+        key = ((platform or "").casefold(), region or "", (edition or "").casefold(), category)
+        if key in seen:
+            continue
+        seen.add(key)
+        entry = {"date": found[0], "precision": found[1]}
+        entry.update({name: value for name, value in (("platform", platform), ("region", region or None),
+                                                      ("edition", edition)) if value})
+        entry["category"] = category
+        out.append(entry)
+        if len(out) == MAX_RELEASES:
+            break
+    return out
+
+
+def release_fields(record):
+    """`release_date`, `year` and, under Plugin API 1.1.20, `first_release` and `releases` for one record.
+
+    `release_date` keeps its day-only meaning. The host refuses a day `first_release` that names another day than
+    `release_date`, so such a pair keeps only the legacy day."""
+    day, first = legacy_day(record), first_release(record)
+    out = {"release_date": day, "year": release_year(record)}
+    if not sends_releases():
+        return out
+    if first and first["precision"] == "day":
+        if day is None:
+            out["release_date"] = first["date"]
+        elif day != first["date"]:
+            first = None
+    out["first_release"] = first
+    out["releases"] = releases(record)
+    return out
+
+
 def candidate(record, media_type="game"):
     media_type = record.get("media_type") if record.get("media_type") in MEDIA_TYPES else media_type
     ids = {"atlas": record["id"], **{key: str(value) for key, value in (record.get("provider_ids") or {}).items()
                                    if key != "atlas"}}
-    year = int(record["release_date"][:4]) if record.get("release_date") else None
     return {"provider": PROVIDER_ID, "external_id": record["id"], "title": record["title"],
-            "media_type": media_type, "provider_ids": ids, "year": year}
+            "media_type": media_type, "provider_ids": ids, "year": release_year(record)}
 
 
 @operation
@@ -107,7 +267,8 @@ def group_play(game):
     if low is not None and high is not None and low > high:
         low = high = None
     out = {"players_min": low, "players_max": high}
-    if values.get("crossplay") in ("yes", "no", "partial"):
+    # C7.2: only the shared vocabulary. `not_applicable` is derived by the host and never sent; absent is unknown.
+    if values.get("crossplay") in vocab.CROSSPLAY:
         out["crossplay"] = values["crossplay"]
     return out
 
@@ -149,7 +310,8 @@ def patch(record):
     tags = (record.get("tags") if isinstance(record.get("tags"), list) else []) + (
         record.get("themes") if isinstance(record.get("themes"), list) else [])
     out = {
-        "title": title, "release_date": record.get("release_date"),
+        "title": title,
+        **release_fields(record),
         "description": record.get("description"),
         "tags": texts(tags, 128, 128),
         "genres": texts(record.get("genres"), 128, 128),
@@ -162,9 +324,6 @@ def patch(record):
         "custom": custom_values(record, media_type),
         "provider_ids": candidate(record, media_type)["provider_ids"],
     }
-    if record.get("release_date"):
-        out["year"] = int(record["release_date"][:4])
-
     if media_type == "game":
         out.update({
             "developer": record.get("developer"), "publisher": record.get("publisher"),
@@ -307,6 +466,8 @@ ACHIEVEMENT_KEY = re.compile(r"ak1:[a-z2-7]{26}")
 # Migration bridge (contract C2.4): the Atlas row id travels as a source id so the host can re-key a catalogue row
 # that was stored under the old, churning row id. It is a valid ActionId and needs no host contract change.
 ATLAS_ROW_SOURCE = "atlas.row"
+# The host's bound on MetadataAchievement.aliases (Plugin API 1.1.20).
+ACHIEVEMENT_ALIAS_LIMIT = 32
 # Below the runtime's 64 KiB action output limit, measured as json.dumps of the whole result.
 ACHIEVEMENT_PAGE_BYTES = 56 * 1024
 
@@ -385,9 +546,10 @@ def achievement_item(entry, root):
         digest = (entry.get(source) or "").rsplit("/", 1)[-1] if isinstance(entry.get(source), str) else ""
         if re.fullmatch(r"[0-9a-f]{64}", digest):
             item[target] = f"{root}/media/{digest}"
-    if entry.get("kind") in ("progression", "missable", "win_condition"):
+    if entry.get("kind") in vocab.ACHIEVEMENT_KINDS:
         item["kind"] = entry["kind"]
-    if entry.get("tier") in ("bronze", "silver", "gold"):
+    # C7.1: `platinum` only under Plugin API 1.1.20; an older contract refuses the value, so the tier stays unset.
+    if entry.get("tier") in (vocab.ACHIEVEMENT_TIERS if sends_releases() else vocab.LEGACY_ACHIEVEMENT_TIERS):
         item["tier"] = entry["tier"]
     points = entry.get("points")
     if isinstance(points, int) and not isinstance(points, bool) and 0 <= points <= 100_000:
@@ -401,7 +563,23 @@ def achievement_item(entry, root):
         source_ids = {ATLAS_ROW_SOURCE: row, **{k: v for k, v in source_ids.items() if k != ATLAS_ROW_SOURCE}}
     if source_ids:
         item["source_ids"] = dict(list(source_ids.items())[:8])
+    aliases = achievement_aliases(entry, identity)
+    if aliases:
+        item["aliases"] = aliases
     return item
+
+
+def achievement_aliases(entry, identity):
+    """C2.4/C2.6: under Plugin API 1.1.20, the other `ak1` keys of a merged entry (Atlas `keys`), so the host keeps a
+    stored definition's id when the anchor key moves. Empty under an older contract, which refuses the field."""
+    keys = entry.get("keys")
+    if not sends_releases() or not isinstance(keys, list):
+        return []
+    out = []
+    for key in keys:
+        if isinstance(key, str) and ACHIEVEMENT_KEY.fullmatch(key) and key != identity and key not in out:
+            out.append(key)
+    return out[:ACHIEVEMENT_ALIAS_LIMIT]
 
 
 def achievement_catalogue(values, game, cursor=0):

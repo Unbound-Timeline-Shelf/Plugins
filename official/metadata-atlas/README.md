@@ -1,6 +1,6 @@
 # Atlas Metadata Provider
 
-Search and enrich games, anime, movies and TV shows from an [Atlas](https://github.com/obsoletelabs/unnamed_tracking_metadata) server. Atlas can merge Steam, IGDB, TMDB and curated sources into one canonical record, while the app combines Atlas with its other providers using the user's provider ranking. Uses public Plugin API v1.1.15 (search, metadata, media, health).
+Search and enrich games, anime, movies and TV shows from an [Atlas](https://github.com/obsoletelabs/unnamed_tracking_metadata) server. Atlas can merge Steam, IGDB, TMDB and curated sources into one canonical record, while the app combines Atlas with its other providers using the user's provider ranking. Uses public Plugin API v1.1.20 (search, metadata, media, health), so it needs a host on Plugin API 1.1.20 or later: an older host refuses to install it and keeps the previous release.
 
 ## Configure
 
@@ -19,6 +19,7 @@ Use your own server, a LAN mirror or a public one; the plugin contacts only the 
 - **Search** is filtered to the requested media type and returns lightweight candidates with Atlas ID plus linked store/provider identifiers (`steam`, `igdb`, `tmdb`, ...) so the host can cross-link them.
 - **Metadata** is fetched by Atlas ID. A candidate without one is resolved by linked provider IDs or exact title and year, constrained to the same media type; only certain matches are accepted (Atlas `reason` `id`, `redirect`, `crosswalk` or `exact`). A `conflict` (the candidate's identifiers point at different Atlas records), an `ambiguous` or cross-type answer and a fuzzy match are never adopted: the plugin returns no metadata, writes the conflicting Atlas IDs to its log and leaves the choice to a curator in Atlas. The year is sent as the release date (`2011`). An Atlas that predates `reason` is read as before (`method` `crosswalk` or `exact`, and no `conflict`); it cannot report conflicts, so against it a conflicting pair can still resolve to the record that owns the first identifier. Returned records include an **Atlas record** link so you can open Atlas and propose missing identifiers through its linking workflow.
 - **Metadata fields** are mapped by media type to the app's provider-neutral contract. Games include developer, publisher, series, features, platforms and multiplayer facts. Movies include director, studio, runtime, writers and production countries. Anime includes studios, format, episode count and themes. TV shows include creators, episode count and episode runtime; networks and season count remain visible as provider custom details. All types can include release date, description, tags, genres, languages, alternate titles, age rating, links, scores, provider IDs and bounded Atlas custom values. Invalid or missing fields are omitted. Provider ordering in the app determines the default winner when sources disagree; fields no other provider supplies still complement the result.
+- **Release dates** keep their precision (Plugin API 1.1.20, Atlas contract C5). Atlas's `first_release` is sent as `first_release` (`{"date": "2011-04", "precision": "month"}`), so a year-only or month-only release is never shown as 1 January. `release_date` stays day-only: it is sent only for a real calendar day, and a day `first_release` always names the same day. Up to five regional `releases` (date, precision, platform, region, edition, category) are forwarded in Atlas's order; an entry with an unusable value is left out, not altered. `year` comes from the first release at any precision. Against an Atlas that predates partial dates, a partial value in its legacy `release_date` key (a curator lock such as `2011`) is read as that year or month, and a free-text one (`TBA`) sends no date.
 - **Achievements** are game-only definitions (name, description, hidden flag, global percentage, cached icons, stable IDs and source IDs), never player progress. The host stores definitions without changing progress and can resolve them through linked IDs such as Steam. Non-game records never request the game achievement endpoint.
 - **Media** lists only artwork Atlas has already downloaded and verified, as `<public-server>/media/<hash>` links. For anime, movies and TV, Atlas key art is exposed as a poster. Achievement icons use the same verified media path. The public URL must be reachable by the app's browser; keeping it separate from the API URL lets the app server use a private Docker address without exposing that address to browsers.
 - Merged Atlas IDs keep working: a record merged into another (also through a chain of merges) is returned under its current ID, and metadata, artwork and achievements are read from that live record.
@@ -26,6 +27,20 @@ Use your own server, a LAN mirror or a public one; the plugin contacts only the 
 - Personal data is never sent. Only titles, years and provider IDs go to the server.
 
 Build development packages with `python tools/build_packages.py`. Unsigned previews require explicit installation consent; signed publication uses the existing release workflow.
+
+## Compatibility
+
+The plugin reads the contract it declares in its own `manifest.json` (the version the host validates its responses
+against) and sends `first_release`, `releases`, achievement `aliases` and the `platinum` tier only when that declaration
+is 1.1.20 or later. A host older than 1.1.20 refuses to install this release, so it never meets those fields; a build
+relabelled to an older contract, or a manifest that cannot be read, sends none of them. An Atlas that has no dates,
+keys or platinum yet simply leaves the fields out. Tiers, kinds, crossplay, precisions and release categories are
+checked against `vocab.py`, the shared vocabulary of CONTRACTS-v1 C7.4: `contracts/vocab-v1.json` is generated from it
+(`python tools/vocab_check.py generate`) and compared with the files Atlas and the host publish (`python
+tools/vocab_check.py compare contracts/vocab-v1.json tests/fixtures/atlas/vocab-v1.json
+tests/fixtures/host/vocab-v1.json`). Crossplay is `yes`, `partial` or `no`; `not_applicable` is derived by the host and
+never sent, and an absent value means unknown. `python tools/check_metadata_atlas_host.py --host-root <host checkout>`
+holds the plugin's responses to the host's own validator under both a 1.1.20 and a 1.1.19 declaration.
 
 ## Local browser check
 
@@ -48,8 +63,9 @@ Achievement identity: the host `external_id` is the stable `ak1:` key Atlas give
 `programme/a4-achievement-identity`), which survives list re-imports, edits and node differences; the Atlas row `id` is
 not an identity because older Atlas versions minted a new one on every refresh. The row id travels as
 `source_ids["atlas.row"]` so a host that stored the catalogue under row ids can re-key it instead of recreating it.
-Against an Atlas without keys the plugin falls back to the row `id` (the previous behaviour). No Plugin API field beyond
-1.1.19 is sent.
+Against an Atlas without keys the plugin falls back to the row `id` (the previous behaviour). Under Plugin API 1.1.20 an
+entry merged from several sources also sends its other keys as `aliases` (at most 32), so the host keeps a stored
+definition when the anchor key moves, and Atlas's `platinum` tier is passed through.
 
 The host accepts at most eight `source_ids` per entry. The `atlas.row` bridge takes the first slot, so an entry that
 carries eight or more provider ids loses its last provider id(s). The host links catalogue rows to synced platform rows

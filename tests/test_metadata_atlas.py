@@ -370,7 +370,7 @@ def test_the_stable_atlas_key_is_the_external_id_and_the_row_id_rides_as_the_atl
     assert items[0]["source_ids"] == {"atlas.row": "01JROW1", "steam": "ACH_1"}
     assert items[1]["source_ids"] == {"atlas.row": "01JROW2"} and items[1]["hidden"] is True
     assert set(items[0]) <= {"name", "external_id", "hidden", "description", "global_percent", "icon_url",
-                             "locked_icon_url", "kind", "tier", "points", "source_ids"}  # no field the 1.1.19 host rejects
+                             "locked_icon_url", "kind", "tier", "points", "source_ids"}  # `keys` names only the anchor: no aliases
 
 
 def test_an_atlas_without_keys_falls_back_to_the_row_id(atlas, monkeypatch):
@@ -783,3 +783,271 @@ def test_every_fixture_case_is_adopted_exactly_when_the_contract_says_so(atlas, 
         assert sent["release_date"] == request["release_date"][:4]  # a year, never "<year>-01-01"
     assert sent["media_type"] == request.get("media_type", "game")
     assert "atlas" not in sent.get("provider_ids", {})
+
+
+# --- Plugin API 1.1.20: partial and regional dates, platinum, aliases, crossplay vocabulary (C5.3, C2.6, C7) ---
+
+RESPONSE_SCHEMA = json.loads((ROOT / "tools/schemas/metadata-response-v1.schema.json").read_text(encoding="utf-8"))
+# Fields a host on Plugin API 1.1.19 or older refuses (`extra="forbid"`, and the 1.1.20 contract gate).
+NEW_PATCH_FIELDS = {"first_release", "releases", "identity"}
+SELECTED = {"provider": "official.metadata-atlas.atlas", "external_id": GAME["id"], "title": "Portal 2"}
+
+
+def details(atlas, monkeypatch, record):
+    Gateway(monkeypatch, routes={"/games/" + GAME["id"]: {"status": 200, "data": record}})
+    result = atlas.metadata({"request": {}, "candidate": SELECTED})
+    jsonschema.validate(result, RESPONSE_SCHEMA)
+    return result["metadata"]
+
+
+def older_contract(atlas, monkeypatch, version=(1, 1, 19)):
+    monkeypatch.setattr(atlas, "API_CONTRACT", version)
+
+
+def test_the_manifest_and_ui_declare_plugin_api_1_1_20_and_the_plugin_reads_it(atlas):
+    directory = ROOT / "official" / "metadata-atlas"
+    for name in ("manifest.json", "ui.json"):
+        assert json.loads((directory / name).read_text(encoding="utf-8"))["api_contract_version"] == "1.1.20"
+    assert atlas.declared_contract() == atlas.API_CONTRACT == (1, 1, 20) and atlas.sends_releases()
+
+
+@pytest.mark.parametrize("declared, expected", [("1.1.19", (1, 1, 19)), ("1.1.20", (1, 1, 20)), ("1.2.0", (1, 2, 0)),
+                                                ("1.1", None), ("1.1.x", None), ("１.1.20", None), (None, None),
+                                                (1120, None), ("missing", None), ("unreadable", None)])
+def test_the_declared_contract_is_read_from_the_packaged_manifest(tmp_path, monkeypatch, declared, expected):
+    """A copy of the plugin next to an edited manifest: an older or unreadable declaration switches 1.1.20 off."""
+    source = ROOT / "official" / "metadata-atlas"
+    for name in ("plugin.py", "vocab.py"):
+        (tmp_path / name).write_bytes((source / name).read_bytes())
+    manifest = json.loads((source / "manifest.json").read_text(encoding="utf-8"))
+    if declared == "missing":
+        manifest.pop("api_contract_version")
+    else:
+        manifest["api_contract_version"] = declared
+    if declared != "unreadable":
+        (tmp_path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    spec = importlib.util.spec_from_file_location("metadata_atlas_contract_copy", tmp_path / "plugin.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.API_CONTRACT == expected
+    assert module.sends_releases() is (expected is not None and expected >= (1, 1, 20))
+    patch = module.patch({**GAME, "first_release": {"date": "2011-04", "precision": "month"},
+                          "releases": [{"date": "2011-04", "precision": "month", "category": "full"}]})
+    assert ("first_release" in patch) is module.sends_releases()
+    assert ("releases" in patch) is module.sends_releases()
+
+
+def test_a_partial_first_release_and_regional_releases_are_mapped(atlas, monkeypatch):
+    record = {**GAME, "release_date": None, "release_year": 2011,
+              "first_release": {"date": "2011-04", "precision": "month"},
+              "releases": [{"date": "2011-04", "precision": "month", "platform": "pc", "region": "ww",
+                            "category": "full"},
+                           {"date": "2011", "precision": "year", "platform": "ps3", "region": "jp",
+                            "edition": "Collector's Edition", "category": "full"},
+                           {"date": "2010-12-01", "precision": "day", "platform": "pc", "category": "beta"}]}
+    meta = details(atlas, monkeypatch, record)
+    assert "release_date" not in meta, "a month is never sent as a day"
+    assert meta["year"] == 2011
+    assert meta["first_release"] == {"date": "2011-04", "precision": "month"}
+    assert meta["releases"] == [
+        {"date": "2011-04", "precision": "month", "platform": "pc", "region": "ww", "category": "full"},
+        {"date": "2011", "precision": "year", "platform": "ps3", "region": "jp", "edition": "Collector's Edition",
+         "category": "full"},
+        {"date": "2010-12-01", "precision": "day", "platform": "pc", "category": "beta"}]
+
+
+def test_a_day_first_release_travels_with_the_legacy_day(atlas, monkeypatch):
+    first = {"date": "2011-04-19", "precision": "day"}
+    meta = details(atlas, monkeypatch, {**GAME, "first_release": first})
+    assert meta["release_date"] == "2011-04-19" and meta["first_release"] == first and meta["year"] == 2011
+    # A day first release without the legacy key still fills it, so both name the same day.
+    meta = details(atlas, monkeypatch, {**GAME, "release_date": None, "first_release": first})
+    assert meta["release_date"] == "2011-04-19" and meta["first_release"] == first
+
+
+def test_a_day_first_release_that_contradicts_the_legacy_day_is_left_out(atlas, monkeypatch):
+    """The host refuses the whole response when release_date and a day first_release differ."""
+    meta = details(atlas, monkeypatch, {**GAME, "first_release": {"date": "2011-04-20", "precision": "day"}})
+    assert meta["release_date"] == "2011-04-19" and "first_release" not in meta
+
+
+@pytest.mark.parametrize("legacy, first, year", [
+    ("2011", {"date": "2011", "precision": "year"}, 2011),        # an older Atlas serves a year lock in the day key
+    ("2011-04", {"date": "2011-04", "precision": "month"}, 2011),
+    ("TBA", None, None),                                           # a free-text lock: no date, no year, no crash
+    ("2011-02-30", None, None),                                    # not a calendar day
+    ("1937-12-21", None, 1937),                                    # an old day keeps its day (and its year)
+])
+def test_an_older_atlas_without_first_release_is_mapped_from_the_legacy_key(atlas, monkeypatch, legacy, first, year):
+    meta = details(atlas, monkeypatch, {**GAME, "release_date": legacy})
+    assert meta.get("first_release") == first and meta.get("year") == year
+    assert meta.get("release_date") == (legacy if legacy == "1937-12-21" else None)
+    assert "releases" not in meta
+
+
+def test_a_search_result_with_a_free_text_date_still_lists_the_candidate(atlas, monkeypatch):
+    records = [{**GAME, "release_date": "TBA"}, {**GAME, "id": "atlas:" + "c" * 26, "release_date": None,
+                                                 "first_release": {"date": "2027", "precision": "year"}}]
+    Gateway(monkeypatch, routes={"/api/v2/games": {"status": 200, "data": {"results": records}}})
+    result = atlas.search(work())
+    jsonschema.validate(result, RESPONSE_SCHEMA)
+    assert [c["year"] for c in result["candidates"]] == [None, 2027]
+
+
+@pytest.mark.parametrize("first", [
+    {"date": "2011-04", "precision": "day"}, {"date": "2011", "precision": "month"},
+    {"date": "2011-13", "precision": "month"}, {"date": "Q3 2025", "precision": "year"},
+    {"date": "2025-Q3", "precision": "quarter"}, {"date": "1949", "precision": "year"},
+    {"date": "2101-01", "precision": "month"}, {"date": "1799-12-31", "precision": "day"},
+    {"date": "٢٠١١", "precision": "year"}, {"date": 2011, "precision": "year"},
+    {"precision": "year"}, "2011", ["2011", "year"],
+])
+def test_a_malformed_first_release_is_ignored_and_the_response_stays_valid(atlas, monkeypatch, first):
+    meta = details(atlas, monkeypatch, {**GAME, "release_date": None, "first_release": first})
+    assert "first_release" not in meta and "release_date" not in meta and "year" not in meta
+
+
+def test_release_entries_are_validated_bounded_and_unique(atlas, monkeypatch):
+    good = {"date": "2011-04-19", "precision": "day", "category": "full"}
+    entries = [
+        {**good, "platform": "PC", "region": "ww"},
+        {**good, "platform": "pc", "region": "ww", "date": "2011-05-01"},      # same key as above (case-insensitive)
+        {**good, "precision": "month"},                                         # precision does not match the shape
+        {**good, "date": "2011-02-30"},                                         # not a calendar day
+        {**good, "region": "XX"}, {**good, "region": "europe"},                 # not a C5.1 region
+        {**good, "category": "soft_launch"},                                    # not in the shared vocabulary
+        {**good, "platform": "p" * 129}, {**good, "edition": "e" * 101},        # too long: left out, not cut
+        {**good, "platform": 64}, {**good, "edition": "\x00bad"},
+        {**good, "label": "ignored extra member", "platform": "switch"},       # unknown members are not forwarded
+        "2011", None,
+        {"date": "2012", "precision": "year", "platform": "  Xbox   360 ", "region": "na"},
+        {"date": "2013-01", "precision": "month", "platform": "ps4", "region": "eu"},
+        {"date": "2014", "precision": "year", "platform": "ps5"},
+        {"date": "2015", "precision": "year", "platform": "mac", "category": "port"},   # a sixth valid entry
+    ]
+    meta = details(atlas, monkeypatch, {**GAME, "releases": entries})
+    assert meta["releases"] == [
+        {**good, "platform": "PC", "region": "ww"},
+        {**good, "platform": "switch"},
+        {"date": "2012", "precision": "year", "platform": "Xbox 360", "region": "na", "category": "full"},
+        {"date": "2013-01", "precision": "month", "platform": "ps4", "region": "eu", "category": "full"},
+        {"date": "2014", "precision": "year", "platform": "ps5", "category": "full"}]
+    assert len(meta["releases"]) == atlas.MAX_RELEASES == 5
+
+
+@pytest.mark.parametrize("releases", [None, [], "2011", {"date": "2011"}, [{"date": "bad", "precision": "year"}]])
+def test_no_usable_release_entry_means_no_releases_key(atlas, monkeypatch, releases):
+    assert "releases" not in details(atlas, monkeypatch, {**GAME, "releases": releases})
+
+
+def test_under_an_older_declared_contract_no_1_1_20_field_is_sent(atlas, monkeypatch):
+    """Feature switch: the same Atlas record under a 1.1.19 declaration sends only what a 1.1.19 host knows."""
+    older_contract(atlas, monkeypatch)
+    record = {**GAME, "release_date": None, "first_release": {"date": "2011-04", "precision": "month"},
+              "releases": [{"date": "2011-04", "precision": "month", "category": "full"}],
+              "custom": {"crossplay": "partial"}}
+    meta = details(atlas, monkeypatch, record)
+    assert not NEW_PATCH_FIELDS & set(meta)
+    assert meta["year"] == 2011 and "release_date" not in meta and meta["crossplay"] == "partial"
+    meta = details(atlas, monkeypatch, {**GAME, "first_release": {"date": "2011-04-19", "precision": "day"}})
+    assert meta["release_date"] == "2011-04-19" and not NEW_PATCH_FIELDS & set(meta)
+
+
+PLATINUM_ENTRIES = [
+    {"id": "01JROW1", "key": KEY_A, "keys": [KEY_A, KEY_B, KEY_A, "ak1:bad", 7, "ak1:" + "c" * 26], "name": "All of it",
+     "tier": "platinum"},
+    {"id": "01JROW2", "key": KEY_B, "keys": [KEY_B], "name": "First steps", "tier": "bronze"},
+    {"id": "01JROW3", "key": "ak1:" + "d" * 26, "name": "Odd", "tier": "diamond"},
+]
+
+
+def test_platinum_and_aliases_are_sent_under_plugin_api_1_1_20(atlas, monkeypatch):
+    items = _catalogue(atlas, monkeypatch, PLATINUM_ENTRIES)
+    assert [(i["name"], i.get("tier")) for i in items] == [("All of it", "platinum"), ("First steps", "bronze"),
+                                                          ("Odd", None)]
+    assert items[0]["aliases"] == [KEY_B, "ak1:" + "c" * 26], "the other well-formed keys, once, without the anchor"
+    assert "aliases" not in items[1] and "aliases" not in items[2]
+
+
+def test_platinum_and_aliases_are_not_sent_under_an_older_declared_contract(atlas, monkeypatch):
+    older_contract(atlas, monkeypatch)
+    items = _catalogue(atlas, monkeypatch, PLATINUM_ENTRIES)
+    assert [i.get("tier") for i in items] == [None, "bronze", None]
+    assert all("aliases" not in item for item in items)
+    assert items[0]["external_id"] == KEY_A and items[0]["source_ids"] == {"atlas.row": "01JROW1"}
+
+
+def test_aliases_are_bounded_by_the_host_limit(atlas, monkeypatch):
+    letters = "abcdefghijklmnopqrstuvwxyz234567"
+    keys = ["ak1:" + letters[n] * 26 for n in range(32)] + ["ak1:" + "a" * 25 + letters[n] for n in range(1, 9)]
+    items = _catalogue(atlas, monkeypatch, [{"id": "01JROW1", "key": keys[0], "keys": keys, "name": "Merged"}])
+    assert items[0]["aliases"] == keys[1:33] and len(items[0]["aliases"]) == atlas.ACHIEVEMENT_ALIAS_LIMIT == 32
+
+
+@pytest.mark.parametrize("value, sent", [("yes", "yes"), ("partial", "partial"), ("no", "no"),
+                                         ("not_applicable", None), ("Yes", None), (True, None), (None, None)])
+def test_crossplay_is_sent_only_from_the_shared_vocabulary(atlas, monkeypatch, value, sent):
+    meta = details(atlas, monkeypatch, {**GAME, "custom": {"players_max": 1, "crossplay": value}})
+    assert meta.get("crossplay") == sent and "crossplay" not in meta.get("custom", {})
+
+
+# --- the shared vocabulary file (C7.4) ---
+
+VOCAB_FILES = {name: ROOT / path for name, path in (
+    ("plugin", "contracts/vocab-v1.json"), ("atlas", "tests/fixtures/atlas/vocab-v1.json"),
+    ("host", "tests/fixtures/host/vocab-v1.json"))}
+
+
+def vocab_tool():
+    spec = importlib.util.spec_from_file_location("vocab_check_under_test", ROOT / "tools" / "vocab_check.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_plugin_uses_the_registry_it_publishes(atlas):
+    exported = json.loads(VOCAB_FILES["plugin"].read_text(encoding="utf-8"))
+    vocab = atlas.vocab
+    assert exported == vocab.export()
+    assert set(vocab.ACHIEVEMENT_TIERS) - set(vocab.LEGACY_ACHIEVEMENT_TIERS) == {"platinum"}
+    assert set(vocab.LEGACY_ACHIEVEMENT_TIERS) < set(vocab.ACHIEVEMENT_TIERS)
+    assert "not_applicable" not in vocab.CROSSPLAY and "feed_kinds" not in exported
+    assert vocab_tool().main(["check"]) == 0
+
+
+@pytest.mark.parametrize("name, digest", [
+    ("plugin", "07f8801d7b5fd2b2a5e2b1265ff0c1e40886842b0aee732aa518761390dead7e"),
+    ("atlas", "1d2b4dd75502887d68a5e8f785997a680ba278542495756d234f0f549077b29a"),  # Atlas f58ff1d
+    ("host", "07f8801d7b5fd2b2a5e2b1265ff0c1e40886842b0aee732aa518761390dead7e"),   # host ff7ebc10 (M7)
+])
+def test_each_vocabulary_file_matches_its_pinned_digest(name, digest):
+    path = VOCAB_FILES[name]
+    assert hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest() == digest
+    assert path.with_name(path.name + ".sha256").read_text(encoding="utf-8").split()[0] == digest
+    assert vocab_tool().main(["verify", str(path)]) == 0
+
+
+def test_the_plugin_atlas_and_host_vocabularies_agree():
+    assert vocab_tool().main(["compare", *map(str, VOCAB_FILES.values())]) == 0
+
+
+@pytest.mark.parametrize("key, values", [("crossplay", ["yes", "partial", "no", "not_applicable"]),
+                                         ("achievement_tier", ["bronze", "silver", "gold"]),
+                                         ("release_category", ["full"])])
+def test_the_compare_reports_a_vocabulary_that_drifted(tmp_path, capsys, key, values):
+    drifted = json.loads(VOCAB_FILES["atlas"].read_text(encoding="utf-8"))
+    drifted[key] = values
+    path = tmp_path / "vocab-v1.json"
+    path.write_text(json.dumps(drifted), encoding="utf-8")
+    assert vocab_tool().main(["compare", str(VOCAB_FILES["plugin"]), str(path)]) == 1
+    assert key + ":" in capsys.readouterr().out
+
+
+def test_the_check_fails_when_the_published_file_is_stale(tmp_path, capsys):
+    tool = vocab_tool()
+    (tmp_path / "contracts").mkdir()
+    (tmp_path / "contracts" / "vocab-v1.json").write_text('{"version": 1}\n', encoding="utf-8")
+    (tmp_path / "contracts" / "vocab-v1.json.sha256").write_text("0" * 64 + "  vocab-v1.json\n", encoding="utf-8")
+    assert tool.main(["check", "--root", str(tmp_path)]) == 1
+    assert "run: python tools/vocab_check.py generate" in capsys.readouterr().out
