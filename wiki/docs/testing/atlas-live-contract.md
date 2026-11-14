@@ -60,6 +60,12 @@ this job required would not cover fork pull requests; that is a branch-protectio
 * **Search**: shape, media-type isolation, limit clamp, empty results, bad and revoked tokens, edition set vs. sibling.
 * **Resolve and details**: crosswalk by provider id, certain title+year match, fuzzy and conflicting ids refused,
   full field mapping validated against the host response schema, movie mapping.
+* **Resolve semantics** (Atlas #96, plugins#70, contract C4): every case of the vendored shared fixture
+  `tests/fixtures/atlas/resolve-contract-v1.json` is built in the node and replayed through the plugin, which adopts an
+  identity exactly for `id`, `redirect`, `crosswalk` and `exact`. A conflict is logged and adopts nothing; merged ids
+  (a chain of two) are followed for metadata, artwork and achievements; a renamed record is found by its provider id
+  and not by its old title; a title twin is refused when the client holds a different id. These tests need an Atlas
+  with the C4 change (A6 or later); against an older Atlas the six conflict/ambiguity tests fail by design.
 * **Rename**: a source renaming its entry keeps the Atlas id.
 * **Achievement identity** (Atlas #78, contract C2): the plugin forwards Atlas's stable `ak1` key as the host
   `external_id` and the Atlas row id as `source_ids["atlas.row"]`; the key survives an unchanged re-import and an edit of
@@ -80,7 +86,6 @@ turns XPASS, which is a failure, so the fixing change must remove the marker and
 | Test | Waiting for |
 | --- | --- |
 | `atlas_86_a_child_edition_or_dlc_names_its_parent` | Atlas #86: no relationships, so no `relations` reach the host |
-| `atlas_96_resolve_reports_the_conflict_it_found` | Atlas #96: `/resolve` drops `conflict` |
 | `n_plus_one_media_needs_one_request_for_a_known_atlas_id` | plugin: re-reads `/games/<id>` before `/artwork` |
 | `n_plus_one_each_achievement_page_costs_one_request` | plugin: re-reads `/games/<id>` for every achievements page |
 

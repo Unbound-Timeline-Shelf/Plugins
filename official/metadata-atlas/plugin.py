@@ -2,6 +2,7 @@
 
 import json
 import re
+import sys
 import time
 from urllib.parse import quote, urlencode, urlsplit
 
@@ -22,7 +23,11 @@ DECLARATION = {
 }
 ASSET_KINDS = {"key_art", "banner", "logo", "icon", "screenshot", "hero", "poster"}
 ATLAS_ID = re.compile(r"^atlas:[0-9a-z]{26}$")
-# Only methods that identify a game with certainty are used to fill in a missing Atlas ID.
+# Contract C4.1: the only `/resolve` reasons a client may adopt as an identity. `conflict`, `type_mismatch`,
+# `ambiguous`, `fuzzy` and `none` are never adopted.
+ADOPTED_REASONS = {"id", "redirect", "crosswalk", "exact"}
+# An Atlas that predates `reason` (before contract C4) only has `method`; it counts when it names a certain match
+# and the answer carries no `conflict`.
 CONFIDENT_MATCHES = {"crosswalk", "exact"}
 
 
@@ -218,11 +223,43 @@ def custom_values(record, media_type="game"):
     return out
 
 
+def adopted(result):
+    """Whether one `/resolve` result identifies the game with certainty (contract C4.1/C4.3).
+
+    With `reason` (Atlas from contract C4): only `id`, `redirect`, `crosswalk` and `exact`, and only when no
+    `conflict` is reported and the answer names a live record. Without `reason` (an older Atlas): the previous
+    rule, `method` in CONFIDENT_MATCHES with no `conflict` key. An unknown future reason is not adopted."""
+    if not isinstance(result, dict) or result.get("conflict"):
+        return False
+    reason = result.get("reason")
+    if reason is None:
+        return result.get("method") in CONFIDENT_MATCHES
+    if reason not in ADOPTED_REASONS:
+        return False
+    game = result.get("game")
+    if not isinstance(game, dict) or not isinstance(game.get("id"), str) or not ATLAS_ID.fullmatch(game["id"]):
+        return False
+    # the record must be the live one Atlas named: a redirect answers with the id it ended on, not the requested one
+    return result.get("canonical_id") in (None, game["id"])
+
+
+def report_conflict(result):
+    """No diagnostic channel exists under Plugin API 1.1.19, so a conflict is logged and nothing is adopted.
+
+    Only Atlas ids and a count are written: no titles, no token, no remote body."""
+    conflict = result.get("conflict") if isinstance(result.get("conflict"), dict) else {}
+    ids = [item for item in conflict.get("canonical_ids", []) if isinstance(item, str) and ATLAS_ID.fullmatch(item)][:8]
+    print("Atlas /resolve reported conflicting identifiers (" + ", ".join(ids or ["?"]) + "); no Atlas identity "
+          "was adopted. A curator can settle it in the Atlas review queue.", file=sys.stderr, flush=True)
+
+
 def resolve(values, selected):
-    """Find the Atlas record for a candidate that only carries other providers' identifiers."""
+    """Find the Atlas record for a candidate that only carries other providers' identifiers.
+
+    Contract C4.3: a conflicting, ambiguous, cross-type or fuzzy answer is not an identity, so it yields None."""
     item = {key: value for key, value in {
         "title": selected.get("title"),
-        "release_date": f"{selected['year']}-01-01" if selected.get("year") else None,
+        "release_date": str(selected["year"]) if selected.get("year") else None,
         "media_type": selected.get("media_type", "game"),
         "provider_ids": {key: value for key, value in (selected.get("provider_ids") or {}).items()
                          if key != "atlas" and re.fullmatch(r"[a-z0-9._-]{1,50}", key)} or None,
@@ -230,12 +267,21 @@ def resolve(values, selected):
     if not item:
         return None
     data = call(values, "/resolve", method="POST", body={"items": [item], "include_view": True})
-    result = (data.get("results") or [{}])[0]
-    return result.get("game") if result.get("method") in CONFIDENT_MATCHES else None
+    results = data.get("results")
+    result = results[0] if isinstance(results, list) and results and isinstance(results[0], dict) else {}
+    if result.get("reason") == "conflict" or result.get("conflict"):
+        report_conflict(result)
+        return None
+    return result.get("game") if adopted(result) else None
 
 
 def locate(values, selected):
-    """The matching Atlas record, constrained to the selected media type."""
+    """The matching Atlas record, constrained to the selected media type.
+
+    An Atlas id that was merged into another record is served as the live record with `redirected_from` set
+    (contract C4.2). Everything built from the record (provider_ids.atlas, the Atlas link, artwork and
+    achievement requests) uses the record's own, live id, so the host learns the new id. A redirect that does
+    not end on a well-formed Atlas id is refused."""
     identity = external_id(selected, PROVIDER_ID, "atlas")
     if identity and not ATLAS_ID.match(identity):
         return None
@@ -243,6 +289,9 @@ def locate(values, selected):
         record = call(values, "/games/" + quote(identity, safe=":")) if identity else resolve(values, selected)
         expected_type = selected.get("media_type", "game")
         if record and record.get("media_type", "game") != expected_type:
+            return None
+        if record and record.get("redirected_from") is not None and not (
+                isinstance(record.get("id"), str) and ATLAS_ID.fullmatch(record["id"])):
             return None
         return record
     except ProviderFailure as exc:

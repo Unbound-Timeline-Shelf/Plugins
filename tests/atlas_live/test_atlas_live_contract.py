@@ -191,15 +191,162 @@ def test_resolve_with_conflicting_provider_ids_yields_no_match(plugin, gateway, 
     assert plugin.metadata({"request": {}, "candidate": cand}) == {}
 
 
-@KNOWN_ISSUE
-def test_KNOWN_ISSUE_atlas_96_resolve_reports_the_conflict_it_found(atlas_api, seeded):
-    """Atlas #96: /resolve reports method 'none' for two ids that point at different records and drops the
-    internal ``conflict`` list, so a client cannot tell 'unknown' from 'contradictory'. Flip when Atlas returns it."""
+def test_atlas_96_resolve_reports_the_conflict_it_found(atlas_api, seeded):
+    """Atlas #96 (contract C4.1): two ids that point at different records are reported as a ``conflict`` with no
+    canonical id, not as an unknown game. Needs an Atlas from the A6 change; an older Atlas answers ``none``."""
     status, body = atlas_api.request("POST", "/resolve", seeded.read_token, {"items": [{
         "title": "Twin Signal", "release_date": "2018-01-01", "media_type": "game",
         "provider_ids": {"steam": "5101", "gog": "5102"}}], "include_view": False})
     assert status == 200
-    assert "conflict" in body["results"][0], body["results"][0]
+    result = body["results"][0]
+    assert (result["reason"], result["tier"], result["canonical_id"], result["method"]) == ("conflict", "id", None, "none")
+    assert sorted(result["conflict"]["canonical_ids"]) == sorted([seeded.ids["twin_a"], seeded.ids["twin_b"]])
+
+
+def test_resolve_with_conflicting_provider_ids_logs_the_conflict_and_adopts_nothing(plugin, gateway, seeded, capsys):
+    cand = selected(plugin, title="Twin Signal", year=2018, provider_ids={"steam": "5101", "gog": "5102"})
+    assert plugin.metadata({"request": {}, "candidate": cand}) == {}  # not a failure, and no marker in `custom`
+    assert plugin.media({"request": {}, "candidate": cand}) == {"assets": []}
+    logged = capsys.readouterr().err
+    assert seeded.ids["twin_a"] in logged and seeded.ids["twin_b"] in logged
+    assert gateway.paths() == ["/resolve", "/resolve"]
+
+
+# --- the shared /resolve fixture (contract C4.5), replayed through the plugin ----------------------------------------
+
+FIXTURE = ROOT / "tests" / "fixtures" / "atlas" / "resolve-contract-v1.json"
+SPEC = json.loads(FIXTURE.read_text(encoding="utf-8"))
+SAFE_REASONS = {"id", "redirect", "crosswalk", "exact"}
+
+
+def substitute(value, ids):
+    if isinstance(value, str) and value.startswith("$"):
+        return ids[value[1:]]
+    if isinstance(value, dict):
+        return {k: substitute(v, ids) for k, v in value.items()}
+    if isinstance(value, list):
+        return [substitute(v, ids) for v in value]
+    return value
+
+
+@pytest.fixture(scope="module")
+def contract_ids(atlas_api, seeded):
+    """Build the fixture's records in the live node (ingest, then merges), exactly as the fixture describes."""
+    ids = {}
+    for seed in SPEC["seeds"]:
+        fields = {key: seed[key] for key in ("provider_ids",) if key in seed}
+        if "developer" in seed:
+            fields["facts"] = {"developer": seed["developer"]}
+        ids[seed["name"]] = atlas_api.observe(seeded.admin_token, seed["source"], seed["external_id"], seed["title"],
+                                              seed.get("release_date"), **fields)
+    for source, target in SPEC["merges"]:
+        atlas_api.ok("POST", f"/games/{substitute(source, ids)}/merge", seeded.admin_token,
+                     {"into": substitute(target, ids)})
+    return ids
+
+
+def host_candidate(plugin, request):
+    """The candidate a host would pass for one fixture request: its own ids, its title and its year."""
+    provider_ids = dict(request.get("provider_ids") or {})
+    if request.get("namespace") and request.get("external_id"):
+        provider_ids[request["namespace"]] = request["external_id"]
+    extra = {"title": request.get("title"), "media_type": request.get("media_type", "game")}
+    if request.get("release_date"):
+        extra["year"] = int(request["release_date"][:4])
+    if "atlas" in provider_ids:
+        return selected(plugin, provider_ids["atlas"], **extra)
+    return selected(plugin, provider_ids=provider_ids, **extra)
+
+
+@pytest.mark.parametrize("case", SPEC["cases"], ids=lambda c: c["name"])
+def test_fixture_case_through_the_plugin(plugin, gateway, atlas_api, seeded, contract_ids, capsys, case):
+    """A client adopts an identity exactly when the fixture says it may: id, redirect, crosswalk and exact."""
+    want = substitute(case["expect"], contract_ids)
+    candidate = host_candidate(plugin, substitute(case["request"], contract_ids))
+    result = plugin.metadata({"request": {}, "candidate": candidate})
+    assert "failure" not in result, result
+    held = candidate.get("provider_ids", {}).get("atlas")
+    if held and not plugin.ATLAS_ID.match(held):
+        assert result == {} and gateway.calls == []  # a malformed Atlas id never reaches the network
+        return
+    if held:
+        # An Atlas id the host already holds is looked up directly (C4.2): the live record under its live id, or
+        # nothing for an id Atlas does not have. It does not go through /resolve.
+        status, record = atlas_api.request("GET", "/games/" + held, seeded.read_token)
+        assert gateway.paths() == ["/games/" + held]
+        if status == 404:
+            assert result == {}
+        else:
+            assert result["metadata"]["provider_ids"]["atlas"] == record["id"]
+            if want["reason"] in ("id", "redirect"):
+                assert record["id"] == want["canonical_id"]
+        return
+    assert gateway.paths() == ["/resolve"]
+    assert bool(result) is (want["reason"] in SAFE_REASONS), (case["name"], result)
+    if result:
+        assert result["metadata"]["provider_ids"]["atlas"] == want["canonical_id"]
+        if "game_title" in want:
+            assert result["metadata"]["title"] == want["game_title"]
+    if want["reason"] == "conflict":
+        logged = capsys.readouterr().err
+        assert all(cid in logged for cid in want["conflict_ids"])
+
+
+# --- merge, rename and conflict as the host meets them -------------------------------------------------------------
+
+def test_a_merged_atlas_id_is_followed_to_the_live_record_for_metadata_artwork_and_achievements(
+        plugin, gateway, atlas_api, seeded):
+    admin = seeded.admin_token
+    old = atlas_api.observe(admin, "steamlike", "MG-1", "Merge Source Field", "2016-04-01", provider_ids={"steam": "5401"})
+    live = atlas_api.observe(admin, "gogish", "MG-2", "Merge Target Field", "2016-04-02", provider_ids={"gog": "5402"})
+    atlas_api.ok("PUT", f"/games/{live}/achievements", admin, {"items": [
+        {"name": "Merged One", "description": "d", "external_id": "m-1"},
+        {"name": "Merged Two", "description": "d", "external_id": "m-2"}]})
+    atlas_api.ok("PUT", f"/games/{live}/artwork", admin, {"items": [
+        {"kind": "logo", "url": f"{seeded.public}/media/{seeded.digest_logo}", "priority": 1}]})
+    atlas_api.ok("POST", f"/games/{old}/merge", admin, {"into": live})
+    assert old != live
+    cand = selected(plugin, old, title="Merge Source Field", year=2016)
+    meta = plugin.metadata({"request": {}, "candidate": cand})["metadata"]
+    assert meta["provider_ids"]["atlas"] == live and meta["provider_ids"]["steam"] == "5401"
+    assert meta["links"][0]["url"] == f"{seeded.public}/game/{live}"
+    assert old not in json.dumps(meta)
+    assets = plugin.media({"request": {}, "candidate": cand})["assets"]
+    assert [a["kind"] for a in assets] == ["logo"]
+    items, _ = catalogue(plugin, old)
+    assert sorted(i["name"] for i in items) == ["Merged One", "Merged Two"]
+    # every request after the first lookup of each operation used the live id, never the merged one
+    assert not any(p.startswith(f"/games/{old}/") for p in gateway.paths()), gateway.paths()
+
+
+def test_a_provider_id_of_a_merged_record_resolves_to_the_live_id(plugin, gateway, atlas_api, seeded):
+    admin = seeded.admin_token
+    a = atlas_api.observe(admin, "steamlike", "MG-3", "Chain Alpha Field", "2015-01-01", provider_ids={"steam": "5411"})
+    b = atlas_api.observe(admin, "gogish", "MG-4", "Chain Beta Field", "2015-02-02", provider_ids={"gog": "5412"})
+    c = atlas_api.observe(admin, "steamlike", "MG-5", "Chain Gamma Field", "2015-03-03", provider_ids={"steam": "5413"})
+    atlas_api.ok("POST", f"/games/{a}/merge", admin, {"into": b})
+    atlas_api.ok("POST", f"/games/{b}/merge", admin, {"into": c})
+    cand = selected(plugin, title="Chain Alpha Field", year=2015, provider_ids={"steam": "5411"})
+    assert plugin.metadata({"request": {}, "candidate": cand})["metadata"]["provider_ids"]["atlas"] == c
+    assert plugin.metadata({"request": {}, "candidate": selected(plugin, a)})["metadata"]["provider_ids"]["atlas"] == c
+
+
+def test_a_renamed_record_is_found_by_its_provider_id_and_not_by_its_old_title(plugin, gateway, atlas_api, seeded):
+    admin = seeded.admin_token
+    cid = atlas_api.observe(admin, "steamlike", "RN-1", "Placeholder Working Name", "2014-05-05",
+                            provider_ids={"steam": "5421"})
+    atlas_api.observe(admin, "steamlike", "RN-1", "Final Shipping Name", "2014-05-05")
+    by_id = selected(plugin, title="Placeholder Working Name", year=2014, provider_ids={"steam": "5421"})
+    meta = plugin.metadata({"request": {}, "candidate": by_id})["metadata"]
+    assert meta["provider_ids"]["atlas"] == cid and meta["title"] == "Final Shipping Name"
+    by_title = selected(plugin, title="Placeholder Working Name", year=2014)
+    assert plugin.metadata({"request": {}, "candidate": by_title}) == {}
+
+
+def test_a_title_twin_is_not_adopted_when_the_client_holds_a_different_id(plugin, gateway, atlas_api, seeded):
+    atlas_api.observe(seeded.admin_token, "steamlike", "DM-1", "Dusk Marsh", "2012-02-02", provider_ids={"steam": "5431"})
+    cand = selected(plugin, title="Dusk Marsh", year=2012, provider_ids={"steam": "5439"})
+    assert plugin.metadata({"request": {}, "candidate": cand}) == {}
 
 
 # --- rename + edition children ---------------------------------------------------------------------------------
