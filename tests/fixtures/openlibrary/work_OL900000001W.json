@@ -1,0 +1,61 @@
+{
+  "title": "The Synthetic Lighthouse",
+  "subtitle": "A Coastal Novel",
+  "key": "/works/OL900000001W",
+  "authors": [
+    {
+      "author": {
+        "key": "/authors/OL900000001A"
+      },
+      "type": {
+        "key": "/type/author_role"
+      }
+    },
+    {
+      "author": {
+        "key": "/authors/OL900000002A"
+      },
+      "type": {
+        "key": "/type/author_role"
+      }
+    }
+  ],
+  "type": {
+    "key": "/type/work"
+  },
+  "description": {
+    "type": "/type/text",
+    "value": "A lighthouse keeper writes letters to a coastal town that is not on any map. Synthetic description written for these fixtures.\r\n\r\nSecond paragraph."
+  },
+  "covers": [
+    -1,
+    9000001,
+    9000002
+  ],
+  "subjects": [
+    "Synthetic subject 01",
+    "Synthetic subject 02",
+    "Synthetic subject 03",
+    "Synthetic subject 04",
+    "Synthetic subject 05",
+    "Synthetic subject 06",
+    "Synthetic subject 07",
+    "Synthetic subject 08",
+    "Synthetic subject 09",
+    "Synthetic subject 10",
+    "Synthetic subject 11",
+    "Synthetic subject 12",
+    "Synthetic subject 01",
+    "  Fiction  "
+  ],
+  "first_publish_date": "June 1937",
+  "latest_revision": 3,
+  "revision": 3,
+  "a_field_from_the_future": {
+    "kept": "ignored"
+  },
+  "created": {
+    "type": "/type/datetime",
+    "value": "2026-01-01T00:00:00.000000"
+  }
+}

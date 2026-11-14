@@ -176,6 +176,18 @@ jobs:
           # supervisor still probes and reports isolation; nothing is mocked.
           NONBUBBLE_ENV: 'true'
         run: python tools/check_reference_lifecycle.py --host-root .validation/host
+      # Books (C15 6.3-6.4): the Open Library plugin serves only `book`, which needs Plugin API 1.1.20 with books.
+      # Its real-worker lifecycle runs alone against the same pinned M10 host commit as the plugin contract checks
+      # in test-and-build (host PR #534); the reference set above keeps the companion host. Re-pin with them.
+      - uses: actions/checkout@v7
+        with:
+          repository: Unbound-Timeline-Shelf/Unbound-Timeline-Shelf
+          ref: efded8aeaed4859d2da43995c8418c37c3a15458
+          path: .validation/host-books
+      - name: Exercise the Open Library plugin through runtime transactions on the books host
+        env:
+          NONBUBBLE_ENV: 'true'
+        run: python tools/check_reference_lifecycle.py --host-root .validation/host-books --source official/metadata-openlibrary
 
   lifecycle-jellyfin:
     needs: gate
@@ -534,6 +546,9 @@ jobs:
         if: needs.gate.outputs.full_tests == 'true'
       # The Atlas plugin's real responses, held to the host's own validator under both contract declarations.
       - run: python tools/check_metadata_atlas_host.py --host-root "${{ steps.contract_host.outputs.root }}" --require-decision
+        if: needs.gate.outputs.full_tests == 'true'
+      # The Open Library plugin's real responses, held to the same host's validators and book forms (C15 T-P2).
+      - run: python tools/check_metadata_openlibrary_host.py --host-root "${{ steps.contract_host.outputs.root }}" --require-decision
         if: needs.gate.outputs.full_tests == 'true'
       - name: Select existing mobile PWA source ref
         if: needs.gate.outputs.full_tests == 'true'

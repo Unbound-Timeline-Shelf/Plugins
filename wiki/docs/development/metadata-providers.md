@@ -1,7 +1,7 @@
 # Metadata provider plugins
 
-The nine optional official metadata plugins consume the host's additive **Plugin API v1.1.1**
-contract. The host owns discovery, ranking, deduplication, sessions, health UI,
+The optional official metadata plugins consume the host's additive **Plugin API v1.1.1**
+contract (Atlas and Open Library declare 1.1.20, the contract with books). The host owns discovery, ranking, deduplication, sessions, health UI,
 enrichment scheduling and persistence. Plugins own external API communication,
 authentication, parsing, provider mapping, pacing and retries.
 
@@ -30,6 +30,7 @@ sync credentials remain in their existing account integration settings.
 | --- | --- | --- |
 | `metadata-gog` | Game catalogue search and metadata | None |
 | `metadata-atlas` | Merged game, anime, movie, TV and book search and metadata from an Atlas server (books and the ISBN lookup need Plugin API 1.1.20) | Server URL (plain setting) and read token, system/user |
+| `metadata-openlibrary` | Book search by title, author or ISBN; work details, ordered authors, subjects, first publication, editions and covers (Plugin API 1.1.20; unreleased preview) | None; an optional contact sent to Open Library, system |
 | `metadata-giantbomb` | Game search, metadata and artwork | GiantBomb API key, system/user |
 | `metadata-retroachievements` | Game search and metadata | RetroAchievements username/key, user |
 | `metadata-screenscraper` | Selected game artwork | Developer ID/password and account ID/password |

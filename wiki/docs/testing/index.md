@@ -61,6 +61,12 @@ permission packages, retained rollback, configuration/storage preservation,
 reinstall, purge and uninstall. It does not substitute for authenticated host
 permission approval. Windows cannot run the real POSIX worker acceptance.
 
+A source the companion host cannot install yet runs alone with `--source`: CI runs
+`--host-root .validation/host-books --source official/metadata-openlibrary` against the pinned
+host commit with books (Plugin API 1.1.20), the same commit as the plugin contract checks.
+`python tools/check_metadata_openlibrary_host.py --host-root <host with books> --require-decision`
+holds the Open Library plugin's responses to that host's validators, book forms and identity reader.
+
 The required `ci.yml` `lifecycle` check aggregates four parallel jobs (`lifecycle-official`,
 `lifecycle-reference`, `lifecycle-jellyfin` and `lifecycle-pwa`), each of which runs only when
 `tools/ci_changes.py` selects its area and each of which provisions PostgreSQL. A

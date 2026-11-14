@@ -1,0 +1,123 @@
+{
+  "api_contract_version": "1.1.20",
+  "application_version_range": ">=0.0.1",
+  "capabilities": [
+    {
+      "name": "metadata_providers.register",
+      "version": 1
+    },
+    {
+      "name": "metadata_providers.search",
+      "version": 1
+    },
+    {
+      "name": "metadata_providers.metadata",
+      "version": 1
+    },
+    {
+      "name": "metadata_providers.media",
+      "version": 1
+    },
+    {
+      "name": "metadata_providers.health",
+      "version": 1
+    },
+    {
+      "name": "network.outbound",
+      "version": 1
+    },
+    {
+      "name": "plugin.storage",
+      "version": 1
+    },
+    {
+      "name": "metadata_providers.configuration",
+      "version": 1
+    }
+  ],
+  "dependencies": [],
+  "description": "Keyless book search, ISBN lookup, work details, editions and covers from Open Library.",
+  "entrypoint": "plugin:main",
+  "integrity": {
+    "key_id": null,
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "signature": null
+  },
+  "manifest_version": 1,
+  "name": "Open Library Metadata Provider",
+  "permissions": [
+    {
+      "capability": {
+        "name": "metadata_providers.register",
+        "version": 1
+      },
+      "rationale": "Register the Open Library book provider so the host can search and enrich books."
+    },
+    {
+      "capability": {
+        "name": "metadata_providers.search",
+        "version": 1
+      },
+      "rationale": "Search Open Library by title, author or ISBN for books."
+    },
+    {
+      "capability": {
+        "name": "metadata_providers.metadata",
+        "version": 1
+      },
+      "rationale": "Fetch the selected work's details, authors, subjects and editions from Open Library."
+    },
+    {
+      "capability": {
+        "name": "metadata_providers.media",
+        "version": 1
+      },
+      "rationale": "Offer the selected work's Open Library cover as artwork."
+    },
+    {
+      "capability": {
+        "name": "metadata_providers.health",
+        "version": 1
+      },
+      "rationale": "Report whether Open Library answers."
+    },
+    {
+      "capability": {
+        "name": "network.outbound",
+        "version": 1
+      },
+      "rationale": "Send bounded, paced requests to openlibrary.org; no other destination is contacted (covers are fetched by the host)."
+    },
+    {
+      "capability": {
+        "name": "plugin.storage",
+        "version": 1
+      },
+      "rationale": "Keep the shared request pacing slot so every worker stays within Open Library's request rate."
+    },
+    {
+      "capability": {
+        "name": "metadata_providers.configuration",
+        "version": 1
+      },
+      "rationale": "Read the optional contact an administrator chose to send to Open Library."
+    }
+  ],
+  "plugin_id": "official.metadata-openlibrary",
+  "sdk_version_range": "^1.1.1",
+  "storage": {
+    "quota_mb": 1
+  },
+  "ui": {
+    "actions": [
+      "search",
+      "metadata",
+      "media",
+      "health"
+    ],
+    "menus": [],
+    "pages": [],
+    "settings": []
+  },
+  "version": "0.1.0"
+}
