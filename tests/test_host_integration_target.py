@@ -31,6 +31,8 @@ LIFECYCLE_JOBS = ("lifecycle-official", "lifecycle-reference", "lifecycle-jellyf
         # The 1.1.20 programme branches test against the open 1.1.20 host PR (#500), then main once it merges.
         ("", "programme/p7-plugins", "programme/m7-plugin-api-1120", True, "programme/m7-plugin-api-1120"),
         ("", "programme/p7-plugins", "programme/m7-plugin-api-1120", False, "main"),
+        # Books (C15): the books branch keeps the ordinary host for builds, lifecycle and PWA checks.
+        ("", "programme/p8-metadata-atlas-books", "main", False, "main"),
     ],
 )
 @pytest.mark.parametrize(
@@ -82,6 +84,59 @@ def test_workflow_selects_owned_host_target(tmp_path, scenario, workflow_name, j
         check=True,
     )
     assert output.read_text().strip() == "ref=" + expected, result.stdout
+
+
+BOOKS_HOST_REF = "efded8aeaed4859d2da43995c8418c37c3a15458"
+
+
+@pytest.mark.parametrize(
+    "serves_books,root,ref",
+    [
+        (None, ".validation/host-books", BOOKS_HOST_REF),
+        ("True", ".validation/host-books", BOOKS_HOST_REF),
+        ("False", ".validation/host", ""),
+    ],
+)
+def test_contract_checks_use_the_pinned_books_host_whenever_the_plugin_declares_book(
+        tmp_path, serves_books, root, ref):
+    """The plugin contract checks run against the M10 host commit that accepts `book` whenever the Atlas plugin
+    declares `book`, whatever the branch is called (P8, a branch stacked on it, or its base after it merges)."""
+    steps = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())["jobs"]["test-and-build"]["steps"]
+    index = next(i for i, step in enumerate(steps) if step.get("id") == "contract_host")
+    assert "COMPANION_BRANCH" not in steps[index]["run"]
+    env = {**os.environ, "GITHUB_OUTPUT": str(tmp_path / "output")}
+    if serves_books is not None:
+        # A plugin with or without `book`: a stand-in `python` answers what the plugin declares.
+        shim = tmp_path / "bin"
+        shim.mkdir()
+        (shim / "python").write_text(f"#!/bin/sh\necho {serves_books}\n")
+        (shim / "python").chmod(0o755)
+        env["PATH"] = f"{shim}{os.pathsep}{env['PATH']}"
+    output = tmp_path / "output"
+    subprocess.run(
+        ["bash", "-e", "-c", steps[index]["run"]],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert output.read_text().split() == ["root=" + root, "ref=" + ref]
+    checkout = steps[index + 1]
+    assert checkout["with"] == {
+        "repository": "Unbound-Timeline-Shelf/Unbound-Timeline-Shelf",
+        "ref": "${{ steps.contract_host.outputs.ref }}",
+        "path": ".validation/host-books",
+    }
+    assert "steps.contract_host.outputs.ref != ''" in checkout["if"]
+    runs = [step.get("run", "") for step in steps]
+    for tool in ("tools/check_host_contract.py", "tools/check_metadata_atlas_host.py"):
+        command = next(run for run in runs if tool in run)
+        assert '--host-root "${{ steps.contract_host.outputs.root }}"' in command
+    # Templates, lifecycle and PWA checks stay on the ordinary companion host.
+    assert any("sync_pwa.py" in run and "--host-root .validation/host " in run for run in runs)
+    setup = LIFECYCLE_SETUP.read_text()
+    assert BOOKS_HOST_REF not in setup
 
 
 def test_every_lifecycle_job_shares_the_setup_and_feeds_the_aggregate_status():

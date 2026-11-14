@@ -6,7 +6,8 @@
         "game",
         "movie",
         "tv_show",
-        "anime"
+        "anime",
+        "book"
       ],
       "title": "MediaType",
       "type": "string"
@@ -140,7 +141,7 @@
       "items": {
         "$ref": "#/$defs/MediaType"
       },
-      "maxItems": 4,
+      "maxItems": 5,
       "minItems": 1,
       "title": "Media Types",
       "type": "array"

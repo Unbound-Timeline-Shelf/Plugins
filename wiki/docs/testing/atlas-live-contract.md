@@ -86,6 +86,14 @@ this job required would not cover fork pull requests; that is a branch-protectio
   no relation (incoming edges travel with the other record); a merge of the parent moves the relation to the
   survivor; a 1.1.19 declaration sends none. Against an Atlas before relations (A15) the route is absent and the
   tests assert that no `relations` key is sent.
+* **Books** (C15 T-P1): the seed adds three synthetic books (never Open Library data). An Atlas before the book
+  release has no `book` type, so the seed creates it inside the container with Atlas's own `custom.save_type`, as an
+  admin would; an Atlas that has the built-in type also gets the `ext.book` member, and the book is observed without it
+  if that member is refused. The tests cover a book-only search with authors, a game search that lists no book, the
+  book patch (authors, series, first publication at its real precision, subjects as genres then tags, ISBN provider
+  id, no game fields), an edition named by an observation, the ISBN lookup through Atlas's `isbn` crosswalk, an
+  unknown ISBN, the cover as a poster, no achievements, and nothing for books under a 1.1.19 declaration. Where the
+  Atlas under test serves the book view (authors with roles, editions with ISBNs) the tests also check it.
 * **Achievements**: 450 entries over three pages, byte-bounded splitting of oversized pages, hidden-entry
   redaction, icon URLs fetched without credentials, cursor handling, exact request counts.
 * **Artwork**: cached copies only, `key_art` to `poster`, `public_base_url`.

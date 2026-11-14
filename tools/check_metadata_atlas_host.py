@@ -16,6 +16,13 @@ catalogue with a platinum entry and merged keys. Every response is validated wit
 
 The host's own refresh decision (C4.4 rule 2) must follow a merged Atlas id from the plugin's patch.
 
+Books (C15 6.3-6.5, Plugin API 1.1.20 with books): the plugin's declaration with ``book`` is accepted under the
+declared contract and refused under 1.1.19; an ISBN typed into a book search is turned into the reserved ``isbn``
+option by the host's own normaliser, the request is valid, and the plugin answers it with the work that holds that
+ISBN; the work and every edition it offers pass the host's own ``BookCreate``/``BookEditionCreate`` schemas the way
+the book page fills them (``bookMetadata.ts``: the work, "Add this edition"), and the edition the ISBN search named is
+among them. Under a 1.1.19 declaration the plugin sends nothing for books.
+
 It also compares the plugin's vocabulary registry with the host's live registry (C7.4). Exit 0 when everything
 holds; any failure is printed and exits 1.
 """
@@ -32,7 +39,42 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_DIR = ROOT / "official" / "metadata-atlas"
 GAME_ID = "atlas:" + "a" * 26
-NEW_FIELDS = {"first_release", "releases", "identity"}
+BOOK_ID = "atlas:" + "k" * 26
+NEW_FIELDS = {"first_release", "releases", "identity", "book"}
+NEW_CANDIDATE_FIELDS = {"authors", "isbn_13"}
+# Synthetic ISBNs with valid check digits; the search below types the second one with hyphens.
+ISBN_A13, ISBN_A10, ISBN_B13 = "9780000000002", "0000000000", "9780000000019"
+ISBN_QUERY = "978-0-00-000001-9"
+BOOKS: dict[str, dict[str, Any]] = {
+    # the Atlas book view (C15 2.3-2.6): authors with roles, series relation with a position, editions with ISBNs
+    "book view": {
+        "id": BOOK_ID, "media_type": "book", "title": "The Synthetic Lighthouse", "developer": "Ada Example",
+        "description": "A keeper writes letters to a town that is not there.",
+        "authors": [{"name": "Ada Example", "role": "author"}, {"name": "B. Placeholder", "role": "translator"},
+                    {"name": "C. Future", "role": "letterer"}],
+        "subtitle": "A Coastal Novel", "page_count": 412, "original_language": "en",
+        "release_date": None, "first_release": {"date": "1937-06", "precision": "month"},
+        "features": [f"Subject {n:02d}" for n in range(12)],
+        "editions": [
+            {"name": "Hardcover, Example Press 1937", "provider_ids": {"openlibrary_edition": "OL1M"},
+             "isbn_13": ISBN_A13, "isbn_10": ISBN_A10, "format": "hardcover", "publisher": "Example Press",
+             "published": {"date": "1937-06", "precision": "month"}, "pages": 412, "language": "en"},
+            {"name": "Paperback, Example Press 2005", "provider_ids": {"openlibrary_edition": "OL2M"},
+             "isbn_13": ISBN_B13, "format": "paperback", "publisher": "Example Press",
+             "published": {"date": "2005-08-01", "precision": "day"}, "pages": 528, "language": "en"},
+            {"name": "Audiobook", "format": "audiobook", "published": {"date": "2019", "precision": "year"}},
+            {"name": "Repeated ISBN", "isbn_13": ISBN_B13},
+            {"name": "Bad ISBN", "isbn_13": "9780000000003", "format": "scroll"}],
+        "relations": {"members_of": [{"id": "atlas:" + "s" * 26, "type": "series_member",
+                                      "title": "The Fictional Coast", "position": "2"}]},
+        "provider_ids": {"openlibrary": "OL1W", "isbn": ISBN_A13}},
+    # a node that predates the book view: an admin-made `book` type, a year lock, edition names only
+    "older book view": {
+        "id": BOOK_ID, "media_type": "book", "title": "Plain Book", "developer": "Ada Example",
+        "release_date": "1605", "features": ["Fiction"], "series": "The Fictional Coast",
+        "editions": [{"name": "Paperback", "provider_ids": {}, "sources": ["manual-books"]}],
+        "provider_ids": {"isbn": ISBN_A13}},
+}
 
 RECORDS: dict[str, dict[str, Any]] = {
     "partial and regional dates": {
@@ -107,8 +149,16 @@ class Gateway:
             return {"status": 200, "data": {"results": ACHIEVEMENTS, "next_offset": None}}
         if url.endswith("/api/v2/games"):
             return {"status": 200, "data": {"results": [self.record]}}
-        if url.endswith("/games/" + GAME_ID):
+        if url.endswith("/games/" + GAME_ID) or url.endswith("/games/" + BOOK_ID):
             return {"status": 200, "data": self.record}
+        if url.endswith("/resolve"):
+            # Atlas's `isbn` crosswalk answers the work that lists the ISBN (C15 2.5)
+            isbn = (payload or {}).get("body", {}).get("items", [{}])[0].get("provider_ids", {}).get("isbn")
+            listed = {edition.get("isbn_13") for edition in self.record.get("editions", [])}
+            if isbn in listed:
+                return {"status": 200, "data": {"results": [{"canonical_id": self.record["id"], "reason": "crosswalk",
+                                                             "method": "crosswalk", "game": self.record}]}}
+            return {"status": 200, "data": {"results": [{"canonical_id": None, "reason": "none"}]}}
         return {"status": 404}
 
 
@@ -131,13 +181,104 @@ def responses(plugin, gateway: Gateway) -> dict[str, dict[str, Any]]:
         out["search: " + name] = plugin.search({"request": {"query": "synthetic", "limit": 5}})
     gateway.record = RECORDS["partial and regional dates"]
     out["achievements"] = plugin.metadata({"request": {"resource": "achievements"}, "candidate": selected})
+    book = {"provider": plugin.PROVIDER_ID, "external_id": BOOK_ID, "title": "Synthetic", "media_type": "book"}
+    for name, record in BOOKS.items():
+        gateway.record = record
+        out["metadata: " + name] = plugin.metadata({"request": {}, "candidate": book})
+        out["search: " + name] = plugin.search({"request": {"query": "synthetic", "limit": 5, "media_type": "book"}})
     return out
 
 
 def uses_new_contract(response: dict[str, Any]) -> bool:
     meta = response.get("metadata") or {}
     return bool(NEW_FIELDS & set(meta)) or any(
-        "aliases" in item or item.get("tier") == "platinum" for item in meta.get("achievements", []))
+        "aliases" in item or item.get("tier") == "platinum" for item in meta.get("achievements", [])) or any(
+        item.get("media_type") == "book" or NEW_CANDIDATE_FIELDS & set(item) for item in response.get("candidates", []))
+
+
+def _book_day(value: Any) -> tuple[str | None, str | None]:
+    """A host book date as the book page stores it (``bookMetadata.ts`` ``bookDate``): the first day of its period,
+    with the precision, and no precision for a day."""
+    if value is None:
+        return None, None
+    year, month, day = (value.date.split("-") + ["01", "01"])[:3]
+    return f"{year}-{month}-{day}", None if value.precision == "day" else value.precision
+
+
+def check_books(host, plugin, gateway: Gateway, declared: str) -> list[str]:
+    """C15 6.2-6.5: the host's own decisions on the plugin's book declaration, ISBN search and book patch.
+
+    The declaration is validated where it enters the host (``MetadataProviderRegistration`` with the plugin's contract
+    context). An ISBN typed into a book search becomes the reserved option through the host's own normaliser
+    (``parse_isbn``, as ``api/routes/metadata.book_lookup_options`` does) and the request is validated. The work and
+    its editions are then held to the host's own create schemas, filled as ``bookMetadata.ts`` fills them (the work
+    form and "Add this edition"), and the edition the ISBN search named must be one of them."""
+    from pydantic import ValidationError
+
+    try:
+        from src.api.schemas.book import BookCreate, BookEditionCreate
+        from src.features.books.isbn import parse_isbn
+    except ImportError as exc:
+        return [f"books: the host has no book schemas ({exc}); C15 needs the M10 host (programme/m10-plugin-api-books)"]
+    problems: list[str] = []
+    context = host.contract_context(declared)
+    try:
+        host.MetadataProviderRegistration.model_validate(plugin.DECLARATION, context=context)
+    except ValidationError as exc:
+        problems.append(f"books: the host refuses the declaration at {declared}: {exc.errors()[:2]}")
+    if "book" not in plugin.DECLARATION["media_types"]:
+        problems.append(f"books: the declaration at {declared} does not offer book")
+    try:
+        host.MetadataProviderRegistration.model_validate(plugin.DECLARATION, context=host.contract_context("1.1.19"))
+    except ValidationError:
+        pass
+    else:
+        problems.append("books: the host accepted a book declaration under 1.1.19")
+
+    gateway.record = BOOKS["book view"]
+    isbn = parse_isbn(ISBN_QUERY).isbn_13
+    request = {"request_id": "00000000-0000-4000-8000-000000000001", "user_id": "00000000-0000-4000-8000-000000000002",
+               "query": ISBN_QUERY, "media_type": "book", "limit": 5, "options": {host.ISBN_OPTION: isbn}}
+    try:
+        host.MetadataProviderRequest.model_validate(request, context=context)
+    except ValidationError as exc:
+        return problems + [f"books: the host's own ISBN request is invalid: {exc.errors()[:2]}"]
+    found = plugin.search({"request": request})
+    parsed = host.ProviderResponse.model_validate(found, context=context)
+    if [item.isbn_13 for item in parsed.candidates] != [isbn]:
+        return problems + [f"books: the ISBN search {ISBN_QUERY!r} answered {found}, expected one work with {isbn}"]
+    chosen = parsed.candidates[0].model_dump(mode="json", exclude_unset=True)
+    details = plugin.metadata({"request": {}, "candidate": chosen})
+    patch = host.ProviderResponse.model_validate(details, context=context).metadata
+    book = patch.book if patch else None
+    if book is None or book.isbn_13 != isbn:
+        return problems + [f"books: the details of the ISBN result name {book and book.isbn_13}, expected {isbn}"]
+    if not any(edition.isbn_13 == isbn for edition in book.editions):
+        problems.append(f"books: the edition {isbn} the search named is not among the work's editions")
+
+    first, precision = _book_day(book.first_published)
+    work = {"title": patch.title, "subtitle": book.subtitle, "authors": [author.name for author in book.authors],
+            "description": patch.description, "first_published": first, "first_published_precision": precision,
+            "language": book.original_language, "genres": list(patch.genres), "tags": list(patch.tags),
+            "series_name": book.series_name, "series_position": book.series_position,
+            "provider_ids": dict(patch.provider_ids)}
+    try:
+        BookCreate.model_validate({key: value for key, value in work.items() if value is not None})
+    except ValidationError as exc:
+        problems.append(f"books: the host's book form refuses the work: {exc.errors()[:2]}")
+    for edition in book.editions:
+        publish, publish_precision = _book_day(edition.publish_date)
+        entry = {"isbn_13": edition.isbn_13, "isbn_10": None if edition.isbn_13 else edition.isbn_10,
+                 "format": edition.format or "other", "publisher": edition.publisher, "publish_date": publish,
+                 "publish_date_precision": publish_precision if publish else None,
+                 "page_count": edition.page_count, "language": edition.language}
+        try:
+            BookEditionCreate.model_validate({key: value for key, value in entry.items() if value is not None})
+        except ValidationError as exc:
+            problems.append(f"books: 'Add this edition' refuses {edition.name or edition.isbn_13}: {exc.errors()[:2]}")
+    print(f"books: the host's ISBN search {ISBN_QUERY!r} finds the work with {isbn}; the work and its "
+          f"{len(book.editions)} editions pass the host's book schemas at {declared}")
+    return problems
 
 
 def check_relations(host, declared: str, current: dict[str, Any], older: dict[str, Any]) -> list[str]:
@@ -248,8 +389,11 @@ def main() -> int:
         problems.append(f"the plugin read {plugin.API_CONTRACT} from its manifest, which declares {declared}")
 
     current = responses(plugin, gateway)
+    problems += check_books(host, plugin, gateway, declared)
     plugin.API_CONTRACT = (1, 1, 19)
     older = responses(plugin, gateway)
+    if "book" in plugin.media_types():
+        problems.append("books: the plugin still offers book under a 1.1.19 declaration")
     new_seen = 0
     for name, response in current.items():
         try:

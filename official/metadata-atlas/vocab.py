@@ -40,6 +40,10 @@ RELATION_TYPES: Final = (
 )
 DATE_PRECISIONS: Final = ("year", "month", "day")
 RELEASE_CATEGORIES: Final = ("full", "early_access", "beta", "rerelease", "port", "demo")
+# Books (C15 2.3, Plugin API 1.1.20): an edition's format (identical to the host's `BookFormat`, #265 3.1) and the
+# part a creator played in a work.
+BOOK_FORMATS: Final = ("paperback", "hardcover", "ebook", "audiobook", "other")
+BOOK_CREATOR_ROLES: Final = ("author", "editor", "translator", "illustrator", "narrator", "contributor")
 
 
 def export() -> dict[str, Any]:
@@ -52,6 +56,8 @@ def export() -> dict[str, Any]:
         "relation_type": list(RELATION_TYPES),
         "date_precision": list(DATE_PRECISIONS),
         "release_category": list(RELEASE_CATEGORIES),
+        "book_format": list(BOOK_FORMATS),
+        "book_creator_role": list(BOOK_CREATOR_ROLES),
     }
 
 
