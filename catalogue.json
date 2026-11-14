@@ -5,6 +5,8 @@
     "example.home-widgets",
     "example.theme-palettes",
     "example.shortcut-playground",
-    "example.story-notification-demo"
+    "example.story-notification-demo",
+    "official.plex-media-sync",
+    "official.emby-media-sync"
   ]
 }

@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "publisher": "Unnamed Tracking Official",
+  "tags": [
+    "official",
+    "preview",
+    "media",
+    "plex"
+  ],
+  "icon": "icon.svg",
+  "automatic_update": false,
+  "release_notes": "Official preview: connect your own Plex account from Settings \u2192 Account \u2192 Connections and sync watch state, progress and play counts into Movies, TV and Anime with a Watch in Plex link. Host-run Connections sync and an opt-in personal autosync. Requires Plugin API 1.1.20."
+}

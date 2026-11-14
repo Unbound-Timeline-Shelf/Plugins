@@ -25,6 +25,16 @@ preview under test with the separate ID `official.jellyfin-media-sync`. Its rele
 uses that same reviewed official signing pipeline. Version 1.0 will follow
 validation and an explicit release decision.
 
+[Plex Media Sync](plex-media-sync/README.md) and [Emby Media Sync](emby-media-sync/README.md)
+are unreleased **0.1.0** previews (`official.plex-media-sync`, `official.emby-media-sync`,
+Plugin API 1.1.20). Each adds a personal Settings → Account → Connections entry that syncs
+watched and in-progress state, playback positions and play counts into Movies, TV and Anime
+through `media.sync` enrich, records a credential-free `watch_url`/`watch_label` for the host's
+"Watch in …" button and marks items unavailable after two complete censuses. Sync runs in
+bounded, resumable steps from Connections, an opt-in personal schedule or the page. Both
+packages ship a byte-identical shared `engine.py`. They are kept in `unreleased_plugins`
+until validated against real servers; branch CI's `unsigned-dist` carries previews.
+
 The separate [Jellyfin demo](../examples/jellyfin-media-sync/README.md) remains an
 example. Official plugins are maintained user-facing features. Demonstrations
 remain in `examples/` and use separate demo signing identities. Valid signature

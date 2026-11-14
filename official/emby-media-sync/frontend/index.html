@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Emby Media Sync</title>
+  <link rel="stylesheet" href="./appearance.css"><link rel="stylesheet" href="./style.css">
+</head>
+<body data-provider="Emby">
+<main>
+  <section aria-label="Emby account">
+    <p id="account" class="hint" role="status">Checking connection…</p>
+    <div class="toolbar"><button id="disconnect" class="ghost" type="button" hidden>Disconnect Emby</button></div>
+    <div id="connect-panel" hidden>
+      <label>Server URL<input data-field="server_url" type="url" autocomplete="off" spellcheck="false" maxlength="2048" placeholder="https://emby.example.net:8920"></label>
+      <label>Username<input data-field="username" type="text" autocomplete="off" spellcheck="false" maxlength="256"></label>
+      <label>Password<input data-field="password" type="password" autocomplete="off" maxlength="1024"></label>
+      <p>Your password goes only to your Emby server, once, to start a session for this app. It is never saved; the session ends when you disconnect.</p>
+      <div class="toolbar"><button id="connect" type="button">Connect Emby</button></div>
+    </div>
+  </section>
+  <section id="libraries-panel" aria-labelledby="libraries-title" hidden>
+    <h2 id="libraries-title">Libraries</h2>
+    <p>Choose what each library holds. Music, photos and other libraries are never read.</p>
+    <div id="libraries"></div>
+    <p id="no-libraries" hidden>This account has no movie or TV libraries.</p>
+    <div class="toolbar"><button id="save-libraries" class="ghost" type="button">Save library choices</button></div>
+  </section>
+  <section id="sync-panel" aria-labelledby="sync-title" hidden>
+    <h2 id="sync-title">Sync</h2>
+    <p>Sync runs in bounded steps and resumes from its checkpoint. Closing this page pauses a sync started here; <strong>Connections → Sync now</strong> and the opt-in <strong>Account → Background tasks → Emby autosync</strong> run on the server without this page.</p>
+    <div class="toolbar"><button id="sync" type="button">Sync now</button><button id="pause" class="ghost" type="button" hidden>Pause after this step</button></div>
+    <p id="progress" role="status" aria-live="polite">Not synced yet.</p>
+    <dl><div><dt>Items checked</dt><dd id="processed">0</dd></div><div><dt>Need review</dt><dd id="conflict-total">0</dd></div><div><dt>Unnumbered episodes</dt><dd id="unnumbered">0</dd></div><div><dt>No longer on Emby</dt><dd id="unavailable">0</dd></div></dl>
+    <p id="last-error" hidden></p>
+  </section>
+  <section id="review-panel" aria-labelledby="review-title" hidden>
+    <h2 id="review-title">Needs review</h2>
+    <p>These items were not changed. Choose what to do; the decision applies on the next sync.</p>
+    <ul id="conflicts"></ul>
+    <p id="review-more" hidden></p>
+  </section>
+  <p id="error" role="alert" hidden></p>
+</main>
+<script src="./appearance.js"></script><script src="./app.js"></script>
+</body>
+</html>

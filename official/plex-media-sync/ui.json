@@ -1,0 +1,94 @@
+{
+  "schema_version": "v1",
+  "api_contract_version": "1.1.20",
+  "plugin_id": "official.plex-media-sync",
+  "title": "Plex Media Sync",
+  "settings": [],
+  "actions": [
+    {
+      "id": "status",
+      "label": "Connection status",
+      "handler": "plugin:status",
+      "capability": {
+        "name": "plugin.storage",
+        "version": 1
+      }
+    },
+    {
+      "id": "connect",
+      "label": "Connect Plex",
+      "handler": "plugin:connect",
+      "capability": {
+        "name": "network.outbound",
+        "version": 1
+      }
+    },
+    {
+      "id": "save-libraries",
+      "label": "Save library choices",
+      "handler": "plugin:save_libraries",
+      "capability": {
+        "name": "plugin.storage",
+        "version": 1
+      }
+    },
+    {
+      "id": "disconnect",
+      "label": "Disconnect Plex",
+      "handler": "plugin:disconnect",
+      "capability": {
+        "name": "plugin.storage",
+        "version": 1
+      },
+      "confirmation": "Remove your saved Plex sign-in and sync checkpoint? Media already synced stays in your library."
+    },
+    {
+      "id": "resolve",
+      "label": "Apply review decision",
+      "handler": "plugin:resolve",
+      "capability": {
+        "name": "plugin.storage",
+        "version": 1
+      },
+      "confirmation": "Apply this review decision? It takes effect on the next Plex sync of this item."
+    },
+    {
+      "id": "sync",
+      "label": "Sync Plex",
+      "handler": "plugin:sync",
+      "capability": {
+        "name": "media.write",
+        "version": 1
+      }
+    }
+  ],
+  "pages": [
+    {
+      "id": "connection",
+      "title": "Plex",
+      "description": "Connect your own Plex account and sync watch state into Movies, TV and Anime. Media you sync stays in your library after disconnecting.",
+      "actions": [
+        "status",
+        "connect",
+        "save-libraries",
+        "disconnect",
+        "resolve",
+        "sync"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "plex",
+      "label": "Plex",
+      "description": "Sync watch state and progress from your Plex server.",
+      "page_id": "connection",
+      "status_action_id": "status",
+      "order": 10,
+      "sync_action_id": "sync"
+    }
+  ],
+  "tables": [],
+  "dialogs": [],
+  "menus": []
+}

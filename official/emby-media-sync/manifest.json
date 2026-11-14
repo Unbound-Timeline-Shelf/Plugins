@@ -1,0 +1,110 @@
+{
+  "api_contract_version": "1.1.20",
+  "application_version_range": ">=0.0.1",
+  "capabilities": [
+    {
+      "name": "media.write",
+      "version": 1
+    },
+    {
+      "name": "network.outbound",
+      "version": 1
+    },
+    {
+      "name": "plugin.storage",
+      "version": 1
+    },
+    {
+      "name": "tasks.background",
+      "version": 1
+    },
+    {
+      "name": "frontend.connections",
+      "version": 1
+    }
+  ],
+  "dependencies": [],
+  "description": "Connect your own Emby server account and sync watched and in-progress state, playback positions and play counts into Movies, TV and Anime, with a Watch in Emby link.",
+  "entrypoint": "plugin:main",
+  "frontend": {
+    "entry": "frontend/index.html",
+    "inline_assets": true
+  },
+  "integrity": {
+    "key_id": null,
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "signature": null
+  },
+  "manifest_version": 1,
+  "name": "Emby Media Sync",
+  "permissions": [
+    {
+      "capability": {
+        "name": "media.write",
+        "version": 1
+      },
+      "rationale": "Create or enrich your own Movies, TV and Anime records from your Emby libraries, with watch state, progress, play counts and a 'Watch in Emby' link. Local edits and ambiguous matches go to review."
+    },
+    {
+      "capability": {
+        "name": "network.outbound",
+        "version": 1
+      },
+      "rationale": "Sign in to and read your Emby server with your own user session. Reads only, plus sign-out on disconnect; redirects are refused."
+    },
+    {
+      "capability": {
+        "name": "plugin.storage",
+        "version": 1
+      },
+      "rationale": "Keep your Emby credential, connection, library choices, sync checkpoint and review queue in this plugin's private storage."
+    },
+    {
+      "capability": {
+        "name": "tasks.background",
+        "version": 1
+      },
+      "rationale": "Run your opt-in personal Emby autosync and Connections \u2192 Sync now on the server, one bounded step at a time."
+    },
+    {
+      "capability": {
+        "name": "frontend.connections",
+        "version": 1
+      },
+      "rationale": "List Emby on Settings \u2192 Account \u2192 Connections with its connection status and Sync now."
+    }
+  ],
+  "plugin_id": "official.emby-media-sync",
+  "scheduled_tasks": [
+    {
+      "action_id": "sync",
+      "default_interval_minutes": 360,
+      "description": "Sync your connected Emby libraries. Each run advances one bounded checkpoint and continues until the census is complete; local notes, ratings and edits are preserved.",
+      "id": "autosync",
+      "max_interval_minutes": 10080,
+      "min_interval_minutes": 15,
+      "name": "Emby autosync",
+      "scope": "user"
+    }
+  ],
+  "sdk_version_range": "^1.1.19",
+  "storage": {
+    "quota_mb": 64
+  },
+  "ui": {
+    "actions": [
+      "status",
+      "connect",
+      "save-libraries",
+      "disconnect",
+      "resolve",
+      "sync"
+    ],
+    "menus": [],
+    "pages": [
+      "connection"
+    ],
+    "settings": []
+  },
+  "version": "0.1.0"
+}
