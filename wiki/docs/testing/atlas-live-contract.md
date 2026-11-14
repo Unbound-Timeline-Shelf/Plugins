@@ -61,6 +61,10 @@ this job required would not cover fork pull requests; that is a branch-protectio
 * **Resolve and details**: crosswalk by provider id, certain title+year match, fuzzy and conflicting ids refused,
   full field mapping validated against the host response schema, movie mapping.
 * **Rename**: a source renaming its entry keeps the Atlas id.
+* **Achievement identity** (Atlas #78, contract C2): the plugin forwards Atlas's stable `ak1` key as the host
+  `external_id` and the Atlas row id as `source_ids["atlas.row"]`; the key survives an unchanged re-import and an edit of
+  other entries. The stability test needs an Atlas with keys (A4 or later) and fails against an older one; the bridge
+  and edit tests cover both cells of the compatibility matrix (key present, and the documented fallback to the row id).
 * **Achievements**: 450 entries over three pages, byte-bounded splitting of oversized pages, hidden-entry
   redaction, icon URLs fetched without credentials, cursor handling, exact request counts.
 * **Artwork**: cached copies only, `key_art` to `poster`, `public_base_url`.
@@ -75,7 +79,6 @@ turns XPASS, which is a failure, so the fixing change must remove the marker and
 
 | Test | Waiting for |
 | --- | --- |
-| `atlas_78_achievement_external_ids_survive_an_atlas_edit` | Atlas #78: achievement ids are new on every list replacement; the host deletes and recreates the catalogue |
 | `atlas_86_a_child_edition_or_dlc_names_its_parent` | Atlas #86: no relationships, so no `relations` reach the host |
 | `atlas_96_resolve_reports_the_conflict_it_found` | Atlas #96: `/resolve` drops `conflict` |
 | `n_plus_one_media_needs_one_request_for_a_known_atlas_id` | plugin: re-reads `/games/<id>` before `/artwork` |

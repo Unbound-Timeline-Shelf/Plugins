@@ -253,6 +253,11 @@ def locate(values, selected):
 
 ACHIEVEMENT_PAGE_SIZE = 200
 ACHIEVEMENT_LIMIT = 2000
+# Contract C2.1: the stable per-entry key Atlas derives from the row identity ("ak1:" + 26 base32 characters).
+ACHIEVEMENT_KEY = re.compile(r"ak1:[a-z2-7]{26}")
+# Migration bridge (contract C2.4): the Atlas row id travels as a source id so the host can re-key a catalogue row
+# that was stored under the old, churning row id. It is a valid ActionId and needs no host contract change.
+ATLAS_ROW_SOURCE = "atlas.row"
 # Below the runtime's 64 KiB action output limit, measured as json.dumps of the whole result.
 ACHIEVEMENT_PAGE_BYTES = 56 * 1024
 
@@ -278,11 +283,21 @@ def achievement_page(values, game, offset):
     return results, following
 
 
+def achievement_identity(entry):
+    """The host ``external_id`` for an Atlas entry: its stable ``ak1`` key, else the row ``id`` (an older Atlas)."""
+    key = entry.get("key")
+    if isinstance(key, str) and ACHIEVEMENT_KEY.fullmatch(key):
+        return key
+    identity = entry.get("id")
+    return identity if isinstance(identity, str) else None
+
+
 def achievement_pages(values, game):
     """Read the whole catalogue in bounded pages.
 
     A server without paging ignores the parameters and returns everything in one response with no
-    next_offset, which ends the loop after the first page. Entries are de-duplicated by achievement id."""
+    next_offset, which ends the loop after the first page. Entries are de-duplicated by achievement key
+    (the row id against an Atlas that predates keys)."""
     entries, seen, offset = [], set(), 0
     while True:
         page = achievement_page(values, game, offset)
@@ -292,7 +307,7 @@ def achievement_pages(values, game):
         for entry in results:
             if not isinstance(entry, dict):
                 continue
-            identity = entry.get("id")
+            identity = achievement_identity(entry)
             if isinstance(identity, str):
                 if identity in seen:
                     continue
@@ -306,7 +321,7 @@ def achievement_pages(values, game):
 def achievement_item(entry, root):
     """The host's definition for one Atlas achievement, or None when it cannot be forwarded."""
     name = entry.get("name")
-    identity = entry.get("id")
+    identity = achievement_identity(entry)
     if not isinstance(name, str) or not 0 < len(name.strip()) <= 200:
         return None
     if not isinstance(identity, str) or not 0 < len(identity) <= 200:
@@ -331,6 +346,10 @@ def achievement_item(entry, root):
     ids = entry.get("external_ids") if isinstance(entry.get("external_ids"), dict) else {}
     source_ids = {k: v for k, v in ids.items() if isinstance(k, str) and re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,127}", k)
                   and isinstance(v, str) and 0 < len(v) <= 512}
+    row = entry.get("id")
+    if isinstance(row, str) and 0 < len(row) <= 512:
+        # The bridge takes one of the eight slots; provider ids a re-key does not need give way first.
+        source_ids = {ATLAS_ROW_SOURCE: row, **{k: v for k, v in source_ids.items() if k != ATLAS_ROW_SOURCE}}
     if source_ids:
         item["source_ids"] = dict(list(source_ids.items())[:8])
     return item
