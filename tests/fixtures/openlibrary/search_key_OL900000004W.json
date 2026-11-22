@@ -1,0 +1,44 @@
+{
+  "numFound": 1,
+  "start": 0,
+  "numFoundExact": true,
+  "q": "key:\"/works/OL900000004W\"",
+  "docs": [
+    {
+      "key": "/works/OL900000004W",
+      "author_name": [
+        "Contributor 01",
+        "Contributor 02",
+        "Contributor 03",
+        "Contributor 04",
+        "Contributor 05",
+        "Contributor 06",
+        "Contributor 07",
+        "Contributor 08",
+        "Contributor 09",
+        "Contributor 10",
+        "Contributor 11",
+        "Contributor 12",
+        "Contributor 13",
+        "Contributor 14",
+        "Contributor 15",
+        "Contributor 16",
+        "Contributor 17",
+        "Contributor 18",
+        "Contributor 19",
+        "Contributor 20",
+        "Contributor 21",
+        "Contributor 22",
+        "Contributor 23",
+        "Contributor 24",
+        "Contributor 25",
+        "Contributor 26",
+        "Contributor 27",
+        "Contributor 28",
+        "Contributor 29",
+        "Contributor 30",
+        "Contributor 31"
+      ]
+    }
+  ]
+}

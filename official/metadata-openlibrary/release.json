@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "publisher": "Unnamed Tracking Official",
+  "tags": [
+    "metadata",
+    "books",
+    "openlibrary",
+    "official"
+  ],
+  "icon": "icon.svg",
+  "automatic_update": true,
+  "release_notes": "Initial keyless Open Library book provider for Plugin API 1.1.20: title and author search, ISBN lookup, work details with ordered authors, subjects, first publication and up to 50 editions, and covers."
+}

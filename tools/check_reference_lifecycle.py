@@ -27,6 +27,9 @@ NAMES = ("ui-api", "playtime-report", "recently-played-notifier", "metadata-cura
          "password-reset-notification-demo", "user-invite-notification-demo",
          "notification-chaos-provider")
 SOURCE_PATHS = tuple(Path("examples") / name for name in NAMES) + (Path("official/discord-notifications"),)
+# Sources whose contract the ordinary companion host does not offer yet: each runs alone with ``--source``
+# against a host that does (CI: the pinned Plugin API 1.1.20 books host, C15 6.3-6.4).
+BOOKS_HOST_SOURCES = (Path("official/metadata-openlibrary"),)
 
 
 def commit(root: Path, message: str) -> None:
@@ -46,7 +49,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host-root", type=Path, required=True)
     parser.add_argument("--temporary-root", type=Path)
+    parser.add_argument("--source", type=Path, action="append",
+                        help="exercise only this plugin source (repeatable); default: the reference set")
     args = parser.parse_args()
+    sources = tuple(args.source or SOURCE_PATHS)
+    if any(not (ROOT / source / "manifest.json").is_file() for source in sources):
+        parser.error("--source must name a plugin source directory such as official/metadata-openlibrary")
     if os.name != "posix":
         parser.error("real worker acceptance requires Linux; run the required lifecycle CI job")
     sys.path.insert(0, str(args.host_root.resolve() / "src/plugin-runtime"))
@@ -60,7 +68,7 @@ def main() -> None:
         for directory in ("tools", "sdk", "publishers"):
             shutil.copytree(ROOT / directory, source / directory,
                             ignore=shutil.ignore_patterns("__pycache__"))
-        for relative in SOURCE_PATHS:
+        for relative in sources:
             shutil.copytree(ROOT / relative, source / relative)
         shutil.copyfile(ROOT / ".gitignore", source / ".gitignore")
         key = Ed25519PrivateKey.generate()
@@ -91,7 +99,7 @@ def main() -> None:
                "PLUGIN_OFFICIAL_SIGNING_KEY_B64": base64.b64encode(official_key.private_bytes_raw()).decode()}
         first = releases(source, env)
         # A real source input changes, so the existing version policy builds a patch.
-        for relative in SOURCE_PATHS:
+        for relative in sources:
             path = source / relative / "README.md"
             with path.open("a", encoding="utf-8") as stream:
                 stream.write("\nDisposable lifecycle acceptance patch.\n")
@@ -99,7 +107,7 @@ def main() -> None:
         second = releases(source, env)
         # Package-side permission delta; the HTTP acceptance independently tests
         # actual grants and rejection/staging while the old package stays active.
-        for relative in SOURCE_PATHS:
+        for relative in sources:
             path = source / relative / "manifest.json"
             manifest = json.loads(path.read_text(encoding="utf-8"))
             ref = {"name": "media.read", "version": 1}
@@ -110,7 +118,7 @@ def main() -> None:
         third = releases(source, env)
         # A valid signed package whose real entrypoint cannot activate. This is
         # a runtime failure, not malformed ZIP bytes or a mocked health result.
-        for relative in SOURCE_PATHS:
+        for relative in sources:
             with (source / relative / "plugin.py").open("a", encoding="utf-8") as stream:
                 stream.write('\n\ndef main() -> None:\n    raise RuntimeError("Disposable activation failure")\n')
         commit(source, "fix: exercise failed activation restoration")

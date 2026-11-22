@@ -1,0 +1,11 @@
+{
+  "numFound": 1,
+  "start": 0,
+  "numFoundExact": true,
+  "q": "key:\"/works/OL900000002W\"",
+  "docs": [
+    {
+      "key": "/works/OL900000002W"
+    }
+  ]
+}

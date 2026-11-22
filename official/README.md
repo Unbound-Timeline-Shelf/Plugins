@@ -35,6 +35,12 @@ bounded, resumable steps from Connections, an opt-in personal schedule or the pa
 packages ship a byte-identical shared `engine.py`. They are kept in `unreleased_plugins`
 until validated against real servers; branch CI's `unsigned-dist` carries previews.
 
+[Open Library Metadata Provider](metadata-openlibrary/README.md) is an unreleased **0.1.0** preview
+(`official.metadata-openlibrary`, Plugin API 1.1.20). It is an optional, keyless book provider for hosts with
+or without Atlas: title, author and ISBN search, ordered authors, subjects, first publication, up to 50
+editions and covers. It serves only books, so it stays in `unreleased_plugins` until the host with books is
+released; branch CI's `unsigned-dist` carries the preview.
+
 The separate [Jellyfin demo](../examples/jellyfin-media-sync/README.md) remains an
 example. Official plugins are maintained user-facing features. Demonstrations
 remain in `examples/` and use separate demo signing identities. Valid signature

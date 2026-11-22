@@ -1,0 +1,16 @@
+{
+  "numFound": 1,
+  "start": 0,
+  "numFoundExact": true,
+  "q": "key:\"/works/OL900000001W\"",
+  "docs": [
+    {
+      "key": "/works/OL900000001W",
+      "author_name": [
+        "Ada Example",
+        "B. Placeholder"
+      ],
+      "first_publish_year": 1937
+    }
+  ]
+}
