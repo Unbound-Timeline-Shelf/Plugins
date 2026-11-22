@@ -254,6 +254,7 @@ class Seed:
     big_count: int = 450
     heavy_count: int = 120
     hidden_index: int = 4
+    books_built_in: bool = False
 
 
 def seed(atlas: Atlas, bootstrap: str, public: str) -> Seed:
@@ -311,4 +312,98 @@ def seed(atlas: Atlas, bootstrap: str, public: str) -> Seed:
 
     # 6. No achievements at all.
     put("bare", atlas.observe(admin, "steamlike", "B-1", "Bare Meridian", "2022-06-06", provider_ids={"steam": "5201"}))
+
+    # 7. Three synthetic books (C15 T-P1). Never Open Library data: its records are not redistributable here.
+    books, out.books_built_in = seed_books(atlas, admin, public)
+    for key, cid in books.items():
+        put("book_" + key, cid)
     return out
+
+
+# --- books (C15) -----------------------------------------------------------------------------------------------
+# Synthetic ISBN-13s with valid check digits.
+BOOK_ISBNS = {"lighthouse": "9780000000002", "tides": "9780000000019", "islands": "9780000000026"}
+BOOK_SUBJECTS = [f"Synthetic subject {n:02d}" for n in range(12)]
+# C15 2.2: the built-in book type's labels. An Atlas before the book release (A21) has no `book` type, so the seed
+# creates it as an admin would (Admin -> Media types), which is the "node that already has a book type" case.
+BOOK_LABELS = {"developer": "Author", "publisher": "Publisher", "series": "Series", "release_date": "First published",
+               "platforms": "Formats", "features": "Subjects"}
+BOOKS = {
+    "lighthouse": {"external_id": "BK-1", "title": "The Synthetic Lighthouse", "release_date": "1937-06-01",
+                   "facts": {"developer": "Ada Example", "publisher": "Example Press", "series": "The Fictional Coast",
+                             "description": "A keeper writes letters to a town that is not there.",
+                             "features": BOOK_SUBJECTS, "languages": ["English"]},
+                   "provider_ids": {"isbn": BOOK_ISBNS["lighthouse"]},
+                   "book": {"authors": [{"name": "Ada Example", "role": "author"},
+                                        {"name": "B. Placeholder", "role": "translator"}],
+                            "subtitle": "A Coastal Novel", "page_count": 412, "original_language": "en",
+                            "series": {"name": "The Fictional Coast", "position": "1"},
+                            "editions": [{"key": "SYN-E1", "name": "Hardcover, Example Press 1937",
+                                          "isbn_13": BOOK_ISBNS["lighthouse"], "format": "hardcover",
+                                          "publisher": "Example Press", "pages": 412, "language": "en",
+                                          "published": {"date": "1937-06-01", "precision": "day"}}]}},
+    "tides": {"external_id": "BK-2", "title": "Synthetic Tides", "release_date": "2005-08-01",
+              "facts": {"developer": "B. Placeholder", "series": "The Fictional Coast", "features": ["Fiction"]},
+              "provider_ids": {"isbn": BOOK_ISBNS["tides"]},
+              "book": {"authors": [{"name": "B. Placeholder", "role": "author"}],
+                       "series": {"name": "The Fictional Coast", "position": "2"},
+                       "editions": [{"key": "SYN-E2", "name": "Paperback, Example Press 2005",
+                                     "isbn_13": BOOK_ISBNS["tides"], "format": "paperback", "pages": 528}]}},
+    "islands": {"external_id": "BK-3", "title": "A Synthetic Atlas of Small Islands", "release_date": "1999-03-02",
+                "edition": "Ebook", "facts": {"developer": "C. Example", "features": ["Geography", "Islands"]},
+                "provider_ids": {"isbn": BOOK_ISBNS["islands"]},
+                "book": {"authors": [{"name": "C. Example", "role": "author"},
+                                     {"name": "D. Example", "role": "illustrator"}],
+                         "editions": [{"key": "SYN-E3", "name": "Ebook", "isbn_13": BOOK_ISBNS["islands"],
+                                       "format": "ebook"}]}},
+}
+
+
+def book_type_is_built_in(atlas: Atlas, token: str) -> bool:
+    """Whether the Atlas under test already knows `book` (the built-in from the book release, A21 on)."""
+    return any(item.get("key") == "book" for item in atlas.ok("GET", "/schema", token).get("media_types", []))
+
+
+def ensure_book_type(atlas: Atlas, token: str) -> bool:
+    """Make sure a `book` media type exists; return whether Atlas had it built in. An older Atlas gets one created
+    inside the container through Atlas's own `custom.save_type` (the same seeding shortcut as ``store_blob``)."""
+    if book_type_is_built_in(atlas, token):
+        return True
+    script = ("import json,sys;from atlas.cli import _maker,_ctx;from atlas import custom;"
+              "settings,maker=_maker();ctx=_ctx(settings,maker);labels=json.loads(sys.stdin.read())\n"
+              "with maker() as s:\n"
+              " custom.save_type(s,ctx,'book','Book',position=6,labels=labels)\n"
+              " s.commit()\n")
+    subprocess.run(["docker", "exec", "-i", atlas.container, "python", "-c", script], input=json.dumps(BOOK_LABELS),
+                   check=True, capture_output=True, text=True)
+    assert book_type_is_built_in(atlas, token), "the book media type was not created"
+    return False
+
+
+def seed_books(atlas: Atlas, admin: str, public: str) -> tuple[dict[str, str], bool]:
+    """The three books, as ``({key: canonical id}, built_in)``. An Atlas with the book release also gets the
+    `ext.book` member (authors, editions, series position); if it refuses that member, or predates it, the same book
+    is observed without it, so the plugin is tested against whatever book view the Atlas under test serves. The last
+    book gets a cached cover, which Atlas stores as artwork and the plugin offers as a poster (D15.5)."""
+    built_in = ensure_book_type(atlas, admin)
+    ids = {}
+    for key, spec in BOOKS.items():
+        fields = {name: value for name, value in spec.items()
+                  if name not in {"external_id", "title", "release_date", "book"}}
+        cid = None
+        if built_in:
+            observation = {"external_id": spec["external_id"], "title": spec["title"],
+                           "release_date": spec["release_date"], "ext": {"book": spec["book"]}, **fields}
+            status, payload = atlas.request("POST", "/observations", admin, {
+                "connection": {"source_kind": "plugin", "source": "manual-books", "source_scope": "live-contract"},
+                "media_type": "book", "observations": [observation]})
+            if 200 <= status < 300 and not payload["results"][0].get("error"):
+                cid = payload["results"][0]["atlas"]["canonical_id"]
+        if cid is None:
+            cid = atlas.observe(admin, "manual-books", spec["external_id"], spec["title"], spec["release_date"],
+                                media_type="book", **fields)
+        ids[key] = cid
+    cover = atlas.store_blob(png((230, 200, 120)))
+    atlas.ok("PUT", f"/games/{ids['islands']}/artwork", admin, {"items": [
+        {"kind": "key_art", "url": f"{public}/media/{cover}", "width": 1, "height": 1, "priority": 10}]})
+    return ids, built_in

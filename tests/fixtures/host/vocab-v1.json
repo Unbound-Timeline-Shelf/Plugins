@@ -42,5 +42,20 @@
     "rerelease",
     "port",
     "demo"
+  ],
+  "book_format": [
+    "paperback",
+    "hardcover",
+    "ebook",
+    "audiobook",
+    "other"
+  ],
+  "book_creator_role": [
+    "author",
+    "editor",
+    "translator",
+    "illustrator",
+    "narrator",
+    "contributor"
   ]
 }

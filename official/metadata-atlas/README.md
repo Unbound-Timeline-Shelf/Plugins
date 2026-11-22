@@ -1,6 +1,6 @@
 # Atlas Metadata Provider
 
-Search and enrich games, anime, movies and TV shows from an [Atlas](https://github.com/obsoletelabs/unnamed_tracking_metadata) server. Atlas can merge Steam, IGDB, TMDB and curated sources into one canonical record, while the app combines Atlas with its other providers using the user's provider ranking. Uses public Plugin API v1.1.20 (search, metadata, media, health), so it needs a host on Plugin API 1.1.20 or later: an older host refuses to install it and keeps the previous release.
+Search and enrich games, anime, movies, TV shows and books from an [Atlas](https://github.com/obsoletelabs/unnamed_tracking_metadata) server. Atlas can merge Steam, IGDB, TMDB and curated sources into one canonical record, while the app combines Atlas with its other providers using the user's provider ranking. Uses public Plugin API v1.1.20 (search, metadata, media, health), so it needs a host on Plugin API 1.1.20 or later: an older host refuses to install it and keeps the previous release.
 
 ## Configure
 
@@ -22,8 +22,33 @@ Use your own server, a LAN mirror or a public one; the plugin contacts only the 
 - **Release dates** keep their precision (Plugin API 1.1.20, Atlas contract C5). Atlas's `first_release` is sent as `first_release` (`{"date": "2011-04", "precision": "month"}`), so a year-only or month-only release is never shown as 1 January. `release_date` stays day-only: it is sent only for a real calendar day, and a day `first_release` always names the same day. Up to five regional `releases` (date, precision, platform, region, edition, category) are forwarded in Atlas's order; an entry with an unusable value is left out, not altered. `year` comes from the first release at any precision. Against an Atlas that predates partial dates, a partial value in its legacy `release_date` key (a curator lock such as `2011`) is read as that year or month, and a free-text one (`TBA`) sends no date.
 - **Relations** between games (Plugin API 1.1.20, Atlas contract C6). Atlas's own relations of a game (its `parents`, such as the base game of a DLC, the original of a remake or port, and its `members_of`, a series or collection) are sent as `relations`: `{"candidate": {"provider": "official.metadata-atlas.atlas", "external_id": <the other record's Atlas id>, "title": ..., "provider_ids": {"atlas": ...}}, "relation": "dlc_of", "group": "related"}`, ordered by relation type (the shared vocabulary order) and then Atlas id, at most 64. The host links the game to the one it tracks under that Atlas id, or keeps the reference until it does. Incoming relations (`children`, `members`) belong to the other record and travel with its refresh. Only the twelve types of the shared vocabulary are sent; any other (`edition_of`, `bundle_contains`, a future type) is left out and its name logged, and a malformed entry is skipped. Editions are not relations (C6.1): an edition reaches the host as the `edition` of a regional release. A game found through a Steam or IGDB id gets its relations too: `/resolve` does not include them, so the plugin reads the record once more. An Atlas without relations sends none.
 - **Identifiers** sent to the host are bounded as the host requires (at most 32: `atlas` first, then the well-known store and catalogue namespaces such as `steam`, `igdb`, `gog`, `epic`, `rawg`, `tmdb` and `imdb`, then the others sorted, so a record whose sources claim many obscure namespaces keeps its store ids; a value that is not a string or number is left out), and `/resolve` receives only real provider namespaces within Atlas's limits (at most 32 ids of up to 256 characters; a title over 500 characters is left out). The host's library candidate also lists its own identity under its provider id (`local`, whose value is the title); that key is not sent.
+- **Books** (Plugin API 1.1.20 with books, C15 §6.3-6.5). `book` is one of the declared media types. A book search
+  lists only Atlas records of type `book`, each with its creators' names (`authors`, display only). An ISBN typed into
+  a book search reaches the plugin as the host's reserved `isbn` option (a normalised ISBN-13); it is an identifier
+  lookup, not a title search: the plugin asks Atlas's `/resolve` for the `isbn` namespace (Atlas's ISBN crosswalk,
+  C15 §2.5) and lists the one book that holds it, with `isbn_13` set. A conflict (two works claim the ISBN) or an
+  uncertain answer lists nothing. An `isbn` option from another caller that is hyphenated or an ISBN-10 is normalised
+  to its ISBN-13 first; one that is not a valid ISBN lists nothing (never a title search). A book's metadata patch carries `book`:
+  - `authors`: Atlas's ordered creator list with roles (at most 30; a role outside the shared `book_creator_role`
+    vocabulary is sent as `contributor`), or the record's primary creator (`developer`) when Atlas has no list;
+  - `subtitle`, `page_count`, `original_language`;
+  - `series_name` and `series_position`: from the record's `series_member` relation and its position, else from the
+    series hint or plain series name of an older Atlas;
+  - `first_published`: Atlas's first release at its real precision, in the host's book years (1000-2100), so "1605"
+    stays a year. It is also sent as `first_release` when that fits C5.1 (a day, or a year or month from 1950);
+  - `editions`: Atlas's editions in its order (at most 50), with ISBN-13/ISBN-10 (validated with their check digits;
+    an ISBN-10 alone gives its ISBN-13; an invalid ISBN-13 drops the pair, a mismatched ISBN-10 is dropped), format
+    (`book_format` vocabulary), publisher, publish date, pages, language and the source's edition id as `key`. A
+    repeated ISBN-13 keeps the first edition, since the host refuses a work whose editions repeat one;
+  - `isbn_13`/`isbn_10`: the edition the ISBN search named, when the record lists it.
+
+  Atlas's subjects (the book type's `features`) become `genres` up to ten, after Atlas's own genres, and `tags` after
+  that (D15.12). Game fields (`developer`, `publisher`, `series`, `features`, `platforms`, game `relations`) are not
+  sent for a book, and a book has no achievements. Its cover is offered as a `poster`. Provider ids include
+  `openlibrary` and `isbn` when Atlas lists them. Under an older declared contract the plugin neither declares nor
+  serves `book`.
 - **Achievements** are game-only definitions (name, description, hidden flag, global percentage, cached icons, stable IDs and source IDs), never player progress. The host stores definitions without changing progress and can resolve them through linked IDs such as Steam. Non-game records never request the game achievement endpoint.
-- **Media** lists only artwork Atlas has already downloaded and verified, as `<public-server>/media/<hash>` links. For anime, movies and TV, Atlas key art is exposed as a poster. Achievement icons use the same verified media path. The public URL must be reachable by the app's browser; keeping it separate from the API URL lets the app server use a private Docker address without exposing that address to browsers.
+- **Media** lists only artwork Atlas has already downloaded and verified, as `<public-server>/media/<hash>` links. For anime, movies, TV and books, Atlas key art is exposed as a poster (a book's cover). Achievement icons use the same verified media path. The public URL must be reachable by the app's browser; keeping it separate from the API URL lets the app server use a private Docker address without exposing that address to browsers.
 - Merged Atlas IDs keep working: a record merged into another (also through a chain of merges) is returned under its current ID, and metadata, artwork and achievements are read from that live record.
 - **Identity** (Plugin API 1.1.20, contract C4.4): each metadata patch says how the record was found, as `identity.match` (`id` for the Atlas ID the host holds, otherwise Atlas's own `/resolve` reason: `redirect`, `crosswalk` or `exact`). When the Atlas ID the host holds was merged into another record, the patch is `{"match": "redirect", "previous_ids": {"atlas": <the held ID>}}` next to the live ID in `provider_ids`, so the host rewrites its saved ID to the live one (C4.4 rule 2) instead of keeping the merged-away ID and depending on Atlas's redirect. A `/resolve` lookup runs only when the host holds no Atlas ID, so its `redirect` carries no `previous_ids`. A record Atlas serves under another ID without a redirect is not reported as a move. A record whose `redirected_from` names an ID other than the one requested is not adopted at all (no patch, no identity), because Atlas did not say that the held ID moved. **Known limitation (unmerge):** once the host has followed a merge from A to C, an Atlas unmerge that brings A back leaves the host holding C. C is still a live record, so later refreshes match it by `id` and keep applying C's metadata; the host recovers only when a person rematches the game (the old ID stays in its field-change history). Following an unmerge back needs Atlas's change feed (C4.2 `/changes`) or an unmerge signal in the Plugin API, which neither this plugin nor the host reads yet. A conflicting or ambiguous `/resolve` answer still returns no patch (logged, as above), so `identity.match` `conflict` is not sent yet. Under an older declared contract no `identity` is sent.
 - Failures are typed (`not_configured`, `invalid_configuration` for a bad URL or rejected token, `rate_limited`, `unavailable`); remote bodies and the token are never retained.
@@ -34,16 +59,20 @@ Build development packages with `python tools/build_packages.py`. Unsigned previ
 ## Compatibility
 
 The plugin reads the contract it declares in its own `manifest.json` (the version the host validates its responses
-against) and sends `first_release`, `releases`, game `relations`, the patch `identity`, achievement `aliases` and the `platinum` tier only
-when that declaration is 1.1.20 or later. A host older than 1.1.20 refuses to install this release, so it never meets those fields; a build
+against) and sends `first_release`, `releases`, game `relations`, the patch `identity`, achievement `aliases`, the `platinum` tier
+and everything for books (the `book` media type, `book` in the patch, a candidate's `authors` and `isbn_13`) only when
+that declaration is 1.1.20 or later. Books joined the one 1.1.20 bump rather than taking 1.1.21 (C15 §6.4, D15.11), so a
+single constant, `UNIFIED_CONTRACT`, gates them all. A host older than 1.1.20 refuses to install this release, so it never meets those fields; a build
 relabelled to an older contract, or a manifest that cannot be read, sends none of them. An Atlas that has no dates,
-keys or platinum yet simply leaves the fields out. Tiers, kinds, crossplay, precisions and release categories are
-checked against `vocab.py`, the shared vocabulary of CONTRACTS-v1 C7.4: `contracts/vocab-v1.json` is generated from it
+keys or platinum yet simply leaves the fields out. Tiers, kinds, crossplay, precisions, release categories, book formats and
+creator roles are checked against `vocab.py`, the shared vocabulary of CONTRACTS-v1 C7.4: `contracts/vocab-v1.json` is generated from it
 (`python tools/vocab_check.py generate`) and compared with the files Atlas and the host publish (`python
 tools/vocab_check.py compare contracts/vocab-v1.json tests/fixtures/atlas/vocab-v1.json
 tests/fixtures/host/vocab-v1.json`). Crossplay is `yes`, `partial` or `no`; `not_applicable` is derived by the host and
 never sent, and an absent value means unknown. `python tools/check_metadata_atlas_host.py --host-root <host checkout>`
-holds the plugin's responses to the host's own validator under both a 1.1.20 and a 1.1.19 declaration.
+holds the plugin's responses to the host's own validator under both a 1.1.20 and a 1.1.19 declaration; for books it
+also needs the host with books (`programme/m10-plugin-api-books`) and checks the declaration, the host's own ISBN
+request, and that the work and every edition pass the host's book schemas.
 
 ## Local browser check
 

@@ -80,6 +80,11 @@ def main() -> None:
         schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
         schema["x-api-contract-version"] = PLUGIN_API_CONTRACT_VERSION
         assert schema == json.loads((root / "tools/schemas" / f"{name}.schema.json").read_bytes()), name
+    # The manifest schema is the host's PluginManifest as generated (including the optional
+    # api_contract_max of Plugin API 1.1.20), so validate_packages refuses exactly what the host refuses.
+    assert PluginManifest.model_json_schema() == json.loads(
+        (root / "tools/schemas/manifest-v1.schema.json").read_bytes()
+    ), "manifest-v1"
     from src.plugin_api import (
         NotificationTypeRegistration, NotificationEventEmission,
         NotificationProviderRegistration, NotificationFieldLayout,

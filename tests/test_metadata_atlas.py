@@ -1105,9 +1105,9 @@ def test_the_plugin_uses_the_registry_it_publishes(atlas):
 
 
 @pytest.mark.parametrize("name, digest", [
-    ("plugin", "07f8801d7b5fd2b2a5e2b1265ff0c1e40886842b0aee732aa518761390dead7e"),
+    ("plugin", "09633bdf9910e1c7659d846c085c17040e88f68b1518f8b25feb786e9ee20097"),
     ("atlas", "1d2b4dd75502887d68a5e8f785997a680ba278542495756d234f0f549077b29a"),  # Atlas f58ff1d
-    ("host", "07f8801d7b5fd2b2a5e2b1265ff0c1e40886842b0aee732aa518761390dead7e"),   # host ff7ebc10 (M7)
+    ("host", "09633bdf9910e1c7659d846c085c17040e88f68b1518f8b25feb786e9ee20097"),   # host efded8ae (M10, books)
 ])
 def test_each_vocabulary_file_matches_its_pinned_digest(name, digest):
     path = VOCAB_FILES[name]

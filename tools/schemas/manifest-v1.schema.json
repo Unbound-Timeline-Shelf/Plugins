@@ -81,6 +81,7 @@
         "media.import",
         "plugin.storage",
         "plugin.settings",
+        "metrics.record",
         "frontend.navigation",
         "frontend.navigation.main",
         "frontend.navigation.settings",
@@ -113,8 +114,8 @@
         "network.outbound",
         "api.full",
         "integrations.public_app",
-        "integrations.identity_provider",
-        "integrations.public_app.admin"
+        "integrations.public_app.admin",
+        "integrations.identity_provider"
       ],
       "title": "Capability",
       "type": "string"
@@ -625,6 +626,18 @@
       "default": "1.0.0",
       "title": "Api Contract Version",
       "type": "string"
+    },
+    "api_contract_max": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Api Contract Max"
     },
     "description": {
       "default": "",

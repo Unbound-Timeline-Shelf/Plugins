@@ -6,7 +6,8 @@
         "game",
         "movie",
         "tv_show",
-        "anime"
+        "anime",
+        "book"
       ],
       "title": "MediaType",
       "type": "string"
