@@ -1710,6 +1710,37 @@
       "title": "MetadataRelease",
       "type": "object"
     },
+    "MetadataResolution": {
+      "additionalProperties": false,
+      "description": "A row the provider identified: by the identifier it was given, or by title and author.",
+      "properties": {
+        "key": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Key",
+          "type": "string"
+        },
+        "matched_by": {
+          "enum": [
+            "identifier",
+            "title"
+          ],
+          "title": "Matched By",
+          "type": "string"
+        },
+        "candidate": {
+          "$ref": "#/$defs/MetadataCandidate"
+        }
+      },
+      "required": [
+        "key",
+        "matched_by",
+        "candidate"
+      ],
+      "title": "MetadataResolution",
+      "type": "object"
+    },
     "MetadataSeason": {
       "additionalProperties": false,
       "properties": {
@@ -1901,6 +1932,15 @@
       ],
       "default": null,
       "title": "Next Cursor"
+    },
+    "resolved": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/MetadataResolution"
+      },
+      "maxItems": 200,
+      "title": "Resolved",
+      "type": "array"
     }
   },
   "title": "ProviderResponse",
