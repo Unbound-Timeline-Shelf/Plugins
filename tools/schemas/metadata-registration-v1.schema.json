@@ -59,7 +59,7 @@
     },
     "ProviderOperations": {
       "additionalProperties": false,
-      "description": "Independent optional capabilities, implemented by existing runtime actions.",
+      "description": "Independent optional capabilities, implemented by existing runtime actions.\n\n``resolve`` (Plugin API 1.1.20) is the batched identifier lookup; its action declares the\n``metadata_providers.search`` capability, because it is a search of many rows at once.",
       "properties": {
         "search": {
           "anyOf": [
@@ -112,6 +112,21 @@
           "pattern": "^[a-z0-9][a-z0-9._-]*$",
           "title": "Health",
           "type": "string"
+        },
+        "resolve": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9._-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolve"
         }
       },
       "required": [
